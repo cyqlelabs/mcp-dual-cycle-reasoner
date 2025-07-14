@@ -67,6 +67,9 @@
       ".ts"
     ],
     "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "test/live-server.test.ts"
+    ],
     "transform": {
       "^.+\\.ts$": [
         "ts-jest",
