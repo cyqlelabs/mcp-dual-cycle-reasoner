@@ -18,14 +18,40 @@ Based on the framework described in `DUAL-CYCLE.MD`, this implementation feature
 - **Cognitive Cycle (The "Doer")**: Direct interaction with the environment
 - **Metacognitive Cycle (The "Thinker")**: Monitors and controls the cognitive cycle
 
-## Quick Start
-
-### Installation
+## Installation
 
 ```bash
 cd mcp-dual-cycle-reasoner
 npm install
 npm run build
+```
+
+### Local Usage
+
+```json
+{
+  "mcpServers": {
+    "dual-cycle-reasoner": {
+      "command": "node",
+      "args": ["/path/to/mcp-dual-cycle-reasoner/build/index.js"]
+    }
+  }
+}
+```
+
+### Using with Claude Desktop
+
+Add to your Claude Desktop MCP configuration:
+
+```json
+{
+  "mcpServers": {
+    "dual-cycle-reasoner": {
+      "command": "npx",
+      "args": ["@cyqlelabs/mcp-dual-cycle-reasoner"]
+    }
+  }
+}
 ```
 
 ### Running the Server
