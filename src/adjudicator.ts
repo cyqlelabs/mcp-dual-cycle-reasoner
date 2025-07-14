@@ -65,7 +65,10 @@ export class Adjudicator {
    * Strategy 5: Abductive Reasoning for Failure Diagnosis
    * Generates and evaluates hypotheses to explain observed failures
    */
-  async diagnoseFailure(loopResult: LoopDetectionResult, trace: CognitiveTrace): Promise<DiagnosisResult> {
+  async diagnoseFailure(
+    loopResult: LoopDetectionResult,
+    trace: CognitiveTrace
+  ): Promise<DiagnosisResult> {
     const hypotheses = this.generateFailureHypotheses(loopResult, trace);
     const evaluatedHypotheses = await Promise.all(
       hypotheses.map(async (hypothesis) => ({
@@ -176,18 +179,21 @@ export class Adjudicator {
     return [...new Set(hypotheses)]; // Remove duplicates
   }
 
-  private async gatherEvidence(hypothesis: FailureHypothesis, trace: CognitiveTrace): Promise<string[]> {
+  private async gatherEvidence(
+    hypothesis: FailureHypothesis,
+    trace: CognitiveTrace
+  ): Promise<string[]> {
     const evidence: string[] = [];
     const recentActions = trace.recent_actions.slice(-5);
 
     // Define expected outcomes for each hypothesis type
     const expectedOutcomes: Record<FailureHypothesis, string> = {
-      'element_state_error': 'Elements can be found and interacted with successfully',
-      'page_state_error': 'Page state changes appropriately after actions',
-      'selector_error': 'Selectors work correctly without errors',
-      'task_model_error': 'Task progresses efficiently toward completion',
-      'network_error': 'Network operations complete without timeout or connection issues',
-      'unknown': 'Actions execute successfully without errors'
+      element_state_error: 'Elements can be found and interacted with successfully',
+      page_state_error: 'Page state changes appropriately after actions',
+      selector_error: 'Selectors work correctly without errors',
+      task_model_error: 'Task progresses efficiently toward completion',
+      network_error: 'Network operations complete without timeout or connection issues',
+      unknown: 'Actions execute successfully without errors',
     };
 
     const expectedOutcome = expectedOutcomes[hypothesis];
@@ -196,7 +202,7 @@ export class Adjudicator {
     for (const action of recentActions) {
       try {
         const assessment = await semanticAnalyzer.assessActionOutcome(action, expectedOutcome);
-        
+
         if (assessment.category === 'failure' && assessment.confidence > 0.7) {
           evidence.push(`Action "${action}" contradicts expected outcome: ${assessment.reasoning}`);
         } else if (assessment.category === 'neutral' && assessment.confidence > 0.8) {
@@ -408,43 +414,44 @@ export class Adjudicator {
     // Parse both texts with compromise
     const currentDoc = nlp(current);
     const storedDoc = nlp(stored);
-    
+
     // Extract and stem key terms
-    const currentTerms = currentDoc.terms().out('array')
+    const currentTerms = currentDoc
+      .terms()
+      .out('array')
       .map((term: string) => PorterStemmer.stem(term.toLowerCase()))
       .filter((term: string) => term.length > 2);
-    const storedTerms = storedDoc.terms().out('array')
+    const storedTerms = storedDoc
+      .terms()
+      .out('array')
       .map((term: string) => PorterStemmer.stem(term.toLowerCase()))
       .filter((term: string) => term.length > 2);
-    
+
     // Calculate Jaccard similarity for stemmed terms
     const jaccardSimilarity = this.calculateJaccardDistance(currentTerms, storedTerms);
     const jaccardScore = 1 - jaccardSimilarity;
-    
+
     // Calculate sentiment similarity using natural library
     const tokenizer = new WordTokenizer();
     const analyzer = new SentimentAnalyzer('English', PorterStemmer, 'afinn');
-    
+
     const currentTokens = tokenizer.tokenize(current) || [];
     const storedTokens = tokenizer.tokenize(stored) || [];
-    
+
     const currentSentiment = analyzer.getSentiment(currentTokens);
     const storedSentiment = analyzer.getSentiment(storedTokens);
     const sentimentSimilarity = 1 - Math.abs(currentSentiment - storedSentiment);
-    
+
     // Calculate TF-IDF based similarity for better semantic matching
     const allTerms = [...new Set([...currentTerms, ...storedTerms])];
     const currentVector = this.createTfIdfVector(currentTerms, allTerms);
     const storedVector = this.createTfIdfVector(storedTerms, allTerms);
     const cosineSimilarity = this.calculateCosineSimilarity(currentVector, storedVector);
-    
+
     // Combine multiple similarity measures
-    const combinedSimilarity = (
-      jaccardScore * 0.4 + 
-      sentimentSimilarity * 0.3 + 
-      cosineSimilarity * 0.3
-    );
-    
+    const combinedSimilarity =
+      jaccardScore * 0.4 + sentimentSimilarity * 0.3 + cosineSimilarity * 0.3;
+
     return Math.max(0, Math.min(1, combinedSimilarity));
   }
 
@@ -452,15 +459,18 @@ export class Adjudicator {
    * Create TF-IDF vector for semantic similarity
    */
   private createTfIdfVector(terms: string[], allTerms: string[]): number[] {
-    const termFreq = terms.reduce((freq, term) => {
-      freq[term] = (freq[term] || 0) + 1;
-      return freq;
-    }, {} as Record<string, number>);
-    
-    return allTerms.map(term => {
+    const termFreq = terms.reduce(
+      (freq, term) => {
+        freq[term] = (freq[term] || 0) + 1;
+        return freq;
+      },
+      {} as Record<string, number>
+    );
+
+    return allTerms.map((term) => {
       const tf = (termFreq[term] || 0) / terms.length;
       // Simplified IDF calculation
-      const idf = Math.log(1 + (1 / Math.max(1, termFreq[term] || 0)));
+      const idf = Math.log(1 + 1 / Math.max(1, termFreq[term] || 0));
       return tf * idf;
     });
   }
@@ -472,7 +482,7 @@ export class Adjudicator {
     const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
     const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
     const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    
+
     if (magnitudeA === 0 || magnitudeB === 0) return 0;
     return dotProduct / (magnitudeA * magnitudeB);
   }
@@ -487,14 +497,13 @@ export class Adjudicator {
   private calculateJaccardDistance(set1: string[], set2: string[]): number {
     const s1 = new Set(set1);
     const s2 = new Set(set2);
-    
-    const intersection = new Set([...s1].filter(x => s2.has(x)));
+
+    const intersection = new Set([...s1].filter((x) => s2.has(x)));
     const union = new Set([...s1, ...s2]);
-    
+
     if (union.size === 0) return 0;
-    
+
     const jaccardSimilarity = intersection.size / union.size;
     return 1 - jaccardSimilarity; // Return distance (1 - similarity)
   }
 }
-
