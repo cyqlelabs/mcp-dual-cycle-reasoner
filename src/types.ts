@@ -137,7 +137,7 @@ export const DetectLoopInputSchema = z.object({
     goal: z.string().describe("Current goal being pursued"),
     step_count: z.number().default(1).describe("Number of steps taken")
   }),
-  detection_method: z.enum(['statistical', 'pattern', 'hybrid']).default('statistical')
+  detection_method: z.enum(['statistical', 'pattern', 'hybrid']).default('hybrid')
 });
 
 export const DiagnoseFailureInputSchema = z.object({

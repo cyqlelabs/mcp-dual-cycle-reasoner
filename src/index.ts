@@ -134,7 +134,7 @@ class DualCycleReasonerServer {
                   type: 'string',
                   enum: ['statistical', 'pattern', 'hybrid'],
                   description: 'Loop detection method to use',
-                  default: 'statistical',
+                  default: 'hybrid',
                 },
               },
               required: ['trace'],

@@ -143,7 +143,7 @@ export class DualCycleEngine {
    * Uses the Sentinel to detect problematic patterns
    */
   private monitorForLoops(trace: CognitiveTrace): LoopDetectionResult {
-    return this.sentinel.detectLoop(trace, 'statistical');
+    return this.sentinel.detectLoop(trace, 'hybrid');
   }
 
   /**
