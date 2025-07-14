@@ -67,9 +67,9 @@ jobs:
           release_name: Release v${{ github.run_number }}
           draft: false
           prerelease: false
-
-      - name: Publish to NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      #
+      # - name: Publish to NPM
+      #   run: npm publish --access public
+      #   env:
+      #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
