@@ -69,14 +69,14 @@ export class DualCycleEngine {
   /**
    * Process a new cognitive trace update (called by the cognitive cycle)
    */
-  processTraceUpdate(trace: CognitiveTrace): {
+  async processTraceUpdate(trace: CognitiveTrace): Promise<{
     intervention_required: boolean;
     loop_detected?: LoopDetectionResult;
     diagnosis?: DiagnosisResult;
     recovery_plan?: RecoveryPlan;
     revised_beliefs?: BeliefRevisionResult;
     explanation?: string;
-  } {
+  }> {
     if (!this.isMonitoring) {
       return { intervention_required: false };
     }
@@ -101,7 +101,7 @@ export class DualCycleEngine {
     console.log(chalk.yellow(`   Details: ${loopDetection.details}`));
 
     // METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
-    const diagnosis = this.interpretFailure(loopDetection, trace);
+    const diagnosis = await this.interpretFailure(loopDetection, trace);
     console.log(chalk.red(`🔍 Diagnosis: ${diagnosis.primary_hypothesis} (confidence: ${(diagnosis.confidence * 100).toFixed(1)}%)`));
     console.log(chalk.red(`   Evidence: ${diagnosis.evidence.join('; ')}`));
 
@@ -111,7 +111,7 @@ export class DualCycleEngine {
     console.log(chalk.blue(`   Rationale: ${recoveryPlan.rationale}`));
 
     // METACOGNITIVE CYCLE - Phase 4: CONTROL (Meta-Level)
-    const beliefRevision = this.controlCognition(loopDetection, diagnosis, trace);
+    const beliefRevision = await this.controlCognition(loopDetection, diagnosis, trace);
     console.log(chalk.magenta(`🧠 Beliefs revised: ${beliefRevision.revised_beliefs.length} beliefs, ${beliefRevision.removed_beliefs.length} removed`));
 
     // Store this experience for future learning
@@ -150,8 +150,8 @@ export class DualCycleEngine {
    * METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
    * Uses the Adjudicator to diagnose the failure
    */
-  private interpretFailure(loopResult: LoopDetectionResult, trace: CognitiveTrace): DiagnosisResult {
-    return this.adjudicator.diagnoseFailure(loopResult, trace);
+  private async interpretFailure(loopResult: LoopDetectionResult, trace: CognitiveTrace): Promise<DiagnosisResult> {
+    return await this.adjudicator.diagnoseFailure(loopResult, trace);
   }
 
   /**
@@ -166,17 +166,17 @@ export class DualCycleEngine {
    * METACOGNITIVE CYCLE - Phase 4: CONTROL (Meta-Level)
    * Revises beliefs and prepares cognitive control signals
    */
-  private controlCognition(
+  private async controlCognition(
     loopResult: LoopDetectionResult, 
     diagnosis: DiagnosisResult, 
     trace: CognitiveTrace
-  ): BeliefRevisionResult {
+  ): Promise<BeliefRevisionResult> {
     const contradictingEvidence = `Loop detected: ${loopResult.type}. Diagnosis: ${diagnosis.primary_hypothesis}. Current strategy is ineffective.`;
     
     // For simplified traces, we'll use empty beliefs array as default
     const currentBeliefs: string[] = [];
     
-    return this.adjudicator.reviseBeliefs(
+    return await this.adjudicator.reviseBeliefs(
       currentBeliefs, 
       contradictingEvidence, 
       trace

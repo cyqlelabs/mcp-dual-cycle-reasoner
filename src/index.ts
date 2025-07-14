@@ -19,6 +19,7 @@ import {
   CaseSchema,
   SentinelConfig,
 } from './types.js';
+import { semanticAnalyzer } from './semantic-analyzer.js';
 import chalk from 'chalk';
 
 /**
@@ -64,6 +65,16 @@ class DualCycleReasonerServer {
     this.engine = new DualCycleEngine(this.config);
     this.setupToolHandlers();
     this.setupErrorHandling();
+    this.initializeSemanticAnalyzer();
+  }
+
+  private async initializeSemanticAnalyzer(): Promise<void> {
+    try {
+      await semanticAnalyzer.initialize();
+      console.log(chalk.green('✓ Semantic analyzer initialized successfully'));
+    } catch (error) {
+      console.error(chalk.red('✗ Failed to initialize semantic analyzer:'), error);
+    }
   }
 
   private setupToolHandlers(): void {
@@ -353,7 +364,7 @@ class DualCycleReasonerServer {
 
           case 'process_trace_update': {
             const { trace } = MonitorCognitiveTraceInputSchema.parse(args);
-            const result = this.engine.processTraceUpdate(trace);
+            const result = await this.engine.processTraceUpdate(trace);
 
             return {
               content: [
@@ -384,7 +395,7 @@ class DualCycleReasonerServer {
           case 'diagnose_failure': {
             const { loop_result, trace } = DiagnoseFailureInputSchema.parse(args);
             const adjudicator = (this.engine as any).adjudicator;
-            const result = adjudicator.diagnoseFailure(loop_result, trace);
+            const result = await adjudicator.diagnoseFailure(loop_result, trace);
 
             return {
               content: [
@@ -400,7 +411,7 @@ class DualCycleReasonerServer {
             const { current_beliefs, contradicting_evidence, trace } =
               ReviseBelifsInputSchema.parse(args);
             const adjudicator = (this.engine as any).adjudicator;
-            const result = adjudicator.reviseBeliefs(
+            const result = await adjudicator.reviseBeliefs(
               current_beliefs,
               contradicting_evidence,
               trace

@@ -10,6 +10,7 @@ import {
 } from './types.js';
 import natural from 'natural';
 import nlp from 'compromise';
+import { semanticAnalyzer } from './semantic-analyzer.js';
 
 // Extract needed components from natural
 const { SentimentAnalyzer, PorterStemmer, WordTokenizer } = natural;
@@ -21,17 +22,18 @@ export class Adjudicator {
    * Strategy 4: Belief Revision for Strategy Invalidation
    * Implements AGM belief revision principles to maintain logical consistency
    */
-  reviseBeliefs(
+  async reviseBeliefs(
     currentBeliefs: string[],
     contradictingEvidence: string,
     _trace: CognitiveTrace
-  ): BeliefRevisionResult {
+  ): Promise<BeliefRevisionResult> {
     const revisedBeliefs: string[] = [];
     const removedBeliefs: string[] = [];
 
     // For simplified approach, keep non-contradicted beliefs and add new insight
     for (const belief of currentBeliefs) {
-      if (!this.doesEvidenceContradictBelief(belief, contradictingEvidence)) {
+      const contradicts = await this.doesEvidenceContradictBelief(belief, contradictingEvidence);
+      if (!contradicts) {
         revisedBeliefs.push(belief);
       } else {
         removedBeliefs.push(belief);
@@ -52,66 +54,26 @@ export class Adjudicator {
   }
 
   /**
-   * Enhanced semantic belief contradiction detection using NLP
+   * Enhanced semantic belief contradiction detection using NLI transformers
    */
-  private doesEvidenceContradictBelief(belief: string, evidence: string): boolean {
-    // Parse with compromise for semantic understanding
-    const beliefDoc = nlp(belief);
-    const evidenceDoc = nlp(evidence);
-    
-    // Extract sentiment and key terms using natural library
-    const tokenizer = new WordTokenizer();
-    const analyzer = new SentimentAnalyzer('English', PorterStemmer, 'afinn');
-    
-    const beliefTokens = tokenizer.tokenize(belief) || [];
-    const evidenceTokens = tokenizer.tokenize(evidence) || [];
-    
-    const beliefSentiment = analyzer.getSentiment(beliefTokens);
-    const evidenceSentiment = analyzer.getSentiment(evidenceTokens);
-    
-    // Check for contradictory sentiment (positive vs negative)
-    const sentimentContradiction = Math.abs(beliefSentiment - evidenceSentiment) > 0.5;
-    
-    // Extract key terms for semantic analysis
-    const beliefTerms = beliefDoc.terms().out('array');
-    const evidenceTerms = evidenceDoc.terms().out('array');
-    
-    // Check for contradictory keywords using natural language processing
-    const contradictoryPairs = [
-      ['effective', 'ineffective'],
-      ['working', 'failed'],
-      ['successful', 'loop'],
-      ['progress', 'stuck'],
-      ['advancing', 'repeating']
-    ];
-    
-    for (const [positive, negative] of contradictoryPairs) {
-      const beliefHasPositive = beliefTerms.some((term: string) => 
-        PorterStemmer.stem(term.toLowerCase()) === PorterStemmer.stem(positive)
-      );
-      const evidenceHasNegative = evidenceTerms.some((term: string) => 
-        PorterStemmer.stem(term.toLowerCase()) === PorterStemmer.stem(negative)
-      );
-      
-      if (beliefHasPositive && evidenceHasNegative) {
-        return true;
-      }
-    }
-    
-    return sentimentContradiction;
+  private async doesEvidenceContradictBelief(belief: string, evidence: string): Promise<boolean> {
+    const result = await semanticAnalyzer.assessBeliefContradiction(belief, evidence);
+    return result.contradicts;
   }
 
   /**
    * Strategy 5: Abductive Reasoning for Failure Diagnosis
    * Generates and evaluates hypotheses to explain observed failures
    */
-  diagnoseFailure(loopResult: LoopDetectionResult, trace: CognitiveTrace): DiagnosisResult {
+  async diagnoseFailure(loopResult: LoopDetectionResult, trace: CognitiveTrace): Promise<DiagnosisResult> {
     const hypotheses = this.generateFailureHypotheses(loopResult, trace);
-    const evaluatedHypotheses = hypotheses.map((hypothesis) => ({
-      hypothesis,
-      evidence: this.gatherEvidence(hypothesis, trace),
-      confidence: this.calculateHypothesisConfidence(hypothesis, trace),
-    }));
+    const evaluatedHypotheses = await Promise.all(
+      hypotheses.map(async (hypothesis) => ({
+        hypothesis,
+        evidence: await this.gatherEvidence(hypothesis, trace),
+        confidence: await this.calculateHypothesisConfidence(hypothesis, trace),
+      }))
+    );
 
     // Sort by confidence
     evaluatedHypotheses.sort((a, b) => b.confidence - a.confidence);
@@ -214,39 +176,45 @@ export class Adjudicator {
     return [...new Set(hypotheses)]; // Remove duplicates
   }
 
-  private gatherEvidence(hypothesis: FailureHypothesis, trace: CognitiveTrace): string[] {
-    // First get semantic evidence
-    const semanticEvidence = this.gatherSemanticEvidence(hypothesis, trace);
-    
-    // Then add traditional pattern-based evidence
-    const evidence: string[] = [...semanticEvidence];
+  private async gatherEvidence(hypothesis: FailureHypothesis, trace: CognitiveTrace): Promise<string[]> {
+    const evidence: string[] = [];
     const recentActions = trace.recent_actions.slice(-5);
 
-    switch (hypothesis) {
-      case 'element_state_error':
-        if (recentActions.some((a) => a.includes('element not found'))) {
-          evidence.push('Element not found errors in recent actions');
-        }
-        if (recentActions.some((a) => a.includes('not clickable'))) {
-          evidence.push('Element not clickable errors detected');
-        }
-        break;
+    // Define expected outcomes for each hypothesis type
+    const expectedOutcomes: Record<FailureHypothesis, string> = {
+      'element_state_error': 'Elements can be found and interacted with successfully',
+      'page_state_error': 'Page state changes appropriately after actions',
+      'selector_error': 'Selectors work correctly without errors',
+      'task_model_error': 'Task progresses efficiently toward completion',
+      'network_error': 'Network operations complete without timeout or connection issues',
+      'unknown': 'Actions execute successfully without errors'
+    };
 
+    const expectedOutcome = expectedOutcomes[hypothesis];
+
+    // Use semantic analysis to assess each recent action
+    for (const action of recentActions) {
+      try {
+        const assessment = await semanticAnalyzer.assessActionOutcome(action, expectedOutcome);
+        
+        if (assessment.category === 'failure' && assessment.confidence > 0.7) {
+          evidence.push(`Action "${action}" contradicts expected outcome: ${assessment.reasoning}`);
+        } else if (assessment.category === 'neutral' && assessment.confidence > 0.8) {
+          evidence.push(`Action "${action}" shows unclear outcome: ${assessment.reasoning}`);
+        }
+      } catch (error) {
+        console.error('Error assessing action outcome:', error);
+      }
+    }
+
+    // Additional hypothesis-specific semantic checks
+    switch (hypothesis) {
       case 'page_state_error':
         if (trace.recent_actions.length > 1) {
           const recentContext = trace.current_context || '';
           if (recentContext === '') {
             evidence.push('Page state has not changed despite actions');
           }
-        }
-        break;
-
-      case 'selector_error':
-        const selectorActions = recentActions.filter(
-          (a) => a.includes('selector') && a.includes('error')
-        );
-        if (selectorActions.length > 0) {
-          evidence.push(`${selectorActions.length} actions with selector errors`);
         }
         break;
 
@@ -258,22 +226,16 @@ export class Adjudicator {
           }
         }
         break;
-
-      case 'network_error':
-        if (recentActions.some((a) => a.includes('network') || a.includes('timeout'))) {
-          evidence.push('Network or timeout errors detected');
-        }
-        break;
     }
 
     return evidence;
   }
 
-  private calculateHypothesisConfidence(
+  private async calculateHypothesisConfidence(
     hypothesis: FailureHypothesis,
     trace: CognitiveTrace
-  ): number {
-    const evidence = this.gatherEvidence(hypothesis, trace);
+  ): Promise<number> {
+    const evidence = await this.gatherEvidence(hypothesis, trace);
     const baseConfidence = 0.4;
     const evidenceBonus = evidence.length * 0.15;
 
@@ -518,41 +480,6 @@ export class Adjudicator {
   /**
    * Enhanced evidence gathering using semantic analysis
    */
-  private gatherSemanticEvidence(hypothesis: FailureHypothesis, trace: CognitiveTrace): string[] {
-    const evidence: string[] = [];
-    const recentActions = trace.recent_actions.slice(-5);
-    
-    // Analyze actions semantically
-    const tokenizer = new WordTokenizer();
-    const analyzer = new SentimentAnalyzer('English', PorterStemmer, 'afinn');
-    
-    recentActions.forEach(action => {
-      const actionDoc = nlp(action);
-      const actionTokens = tokenizer.tokenize(action) || [];
-      const sentiment = analyzer.getSentiment(actionTokens);
-      const hasErrorTerms = actionDoc.has('(error|fail|not found|timeout)');
-      
-      switch (hypothesis) {
-        case 'element_state_error':
-          if (hasErrorTerms || sentiment < -0.3) {
-            evidence.push(`Action '${action}' indicates element interaction issues`);
-          }
-          break;
-        case 'network_error':
-          if (actionDoc.has('(network|timeout|connection)')) {
-            evidence.push(`Network-related issue detected in: ${action}`);
-          }
-          break;
-        case 'task_model_error':
-          if (sentiment < -0.5) {
-            evidence.push(`Negative outcome suggests task understanding issue: ${action}`);
-          }
-          break;
-      }
-    });
-    
-    return evidence;
-  }
 
   /**
    * Calculate Jaccard distance between two string arrays
