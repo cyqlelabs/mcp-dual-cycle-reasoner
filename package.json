@@ -1,6 +1,6 @@
 {
   "name": "@cyqlelabs/mcp-dual-cycle-reasoner",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "MCP server implementing dual-cycle metacognitive reasoning framework for autonomous agents",
   "type": "module",
   "main": "build/index.js",
@@ -63,11 +63,23 @@
   },
   "jest": {
     "preset": "ts-jest/presets/default-esm",
-    "extensionsToTreatAsEsm": [".ts"],
+    "extensionsToTreatAsEsm": [
+      ".ts"
+    ],
     "testEnvironment": "node",
     "transform": {
-      "^.+\\.ts$": ["ts-jest", { "useESM": true }],
-      "^.+\\.js$": ["ts-jest", { "useESM": true }]
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ],
+      "^.+\\.js$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
     },
     "transformIgnorePatterns": [
       "node_modules/(?!(chalk|ansi-styles|@modelcontextprotocol|mcp-client|reconnecting-eventsource|strict-event-emitter-types)/)"
