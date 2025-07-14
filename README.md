@@ -2,12 +2,14 @@
 
 A Model Context Protocol (MCP) server implementing the **Dual-Cycle Metacognitive Reasoning Framework** for autonomous agents. This server provides tools for agents to monitor their own cognition, detect when they're stuck in loops, diagnose failures, and generate recovery plans.
 
-**Latest Updates:**
+**Key Features:**
 
-- ✨ **Configurable Detection Parameters** - Customize loop detection thresholds and progress indicators
-- 🎯 **Simplified Schema Structure** - Streamlined APIs optimized for LLM usage
-- 📊 **Domain-Specific Customization** - Configure progress indicators for different task domains
-- 🔧 **Enhanced Loop Detection** - Improved accuracy with configurable sensitivity settings
+- 📊 **Advanced Statistical Analysis** - Entropy-based anomaly detection and time series analysis
+- 🧠 **Semantic Text Processing** - NLP-powered belief revision and case similarity
+- 🎯 **Multi-Strategy Detection** - Statistical, pattern-based, and hybrid loop detection
+- 📈 **Time Series Analysis** - Trend detection and cyclical pattern recognition
+- 🔧 **Configurable Detection** - Domain-specific thresholds and progress indicators
+- 🚀 **High-Performance Libraries** - Built with simple-statistics, natural, and compromise
 
 ## 🧠 Architecture Overview
 
@@ -22,19 +24,43 @@ Based on the framework described in `DUAL-CYCLE.MD`, this implementation feature
 
 #### 🔍 Sentinel (Monitoring)
 
-Implements three loop detection strategies:
+Implements advanced loop detection strategies:
 
-1. **Action Trace Analysis**: Statistical anomaly detection in action sequences
-2. **State Invariance Tracking**: Detects when agents return to previously visited states
-3. **Progress Heuristic Evaluation**: Monitors quantitative progress metrics for stagnation
+1. **Enhanced Action Trace Analysis**: 
+   - Entropy-based anomaly detection
+   - Autocorrelation analysis for periodic patterns
+   - Time series trend analysis
+   - Statistical variance monitoring
+
+2. **State Invariance Tracking**: 
+   - MD5 hash-based state fingerprinting
+   - Statistical similarity measurement
+   - Fuzzy state matching
+
+3. **Advanced Progress Evaluation**: 
+   - FFT-based frequency analysis
+   - Moving average trend detection
+   - Multi-metric stagnation scoring
 
 #### ⚖️ Adjudicator (Control)
 
-Implements failure diagnosis and recovery:
+Implements intelligent failure diagnosis and recovery:
 
-1. **Belief Revision**: AGM-based logical consistency maintenance
-2. **Abductive Reasoning**: Failure diagnosis through hypothesis generation
-3. **Case-Based Reasoning**: Recovery plan generation from past experiences
+1. **Semantic Belief Revision**: 
+   - NLP-powered contradiction detection
+   - Sentiment analysis for belief conflicts
+   - Stemming and tokenization for accuracy
+
+2. **Enhanced Abductive Reasoning**: 
+   - Multi-factor evidence gathering
+   - Semantic evidence analysis
+   - Confidence scoring with quality metrics
+
+3. **Advanced Case-Based Reasoning**: 
+   - Jaccard similarity for case matching
+   - TF-IDF semantic similarity
+   - Cosine similarity for vector comparison
+   - Multi-metric case retrieval
 
 ## 🚀 Quick Start
 
@@ -143,7 +169,13 @@ Configure loop detection parameters and domain-specific progress indicators.
   "min_actions_for_detection": 5,
   "alternating_threshold": 0.5,
   "repetition_threshold": 0.4,
-  "progress_threshold_adjustment": 0.2
+  "progress_threshold_adjustment": 0.2,
+  "statistical_analysis": {
+    "entropy_threshold": 0.6,
+    "variance_threshold": 0.1,
+    "trend_threshold": 0.1,
+    "cyclicity_threshold": 0.3
+  }
 }
 ```
 
@@ -182,22 +214,6 @@ Revise agent beliefs using AGM belief revision principles.
     "recent_actions": ["click_element", "click_element"],
     "goal": "Complete checkout"
   }
-}
-```
-
-### Configuration Tools
-
-#### `configure_detection`
-
-Configure loop detection parameters and domain-specific progress indicators.
-
-```json
-{
-  "progress_indicators": ["success", "complete", "found", "loaded"],
-  "min_actions_for_detection": 5,
-  "alternating_threshold": 0.5,
-  "repetition_threshold": 0.4,
-  "progress_threshold_adjustment": 0.2
 }
 ```
 
@@ -294,28 +310,33 @@ The latest version features simplified schemas optimized for LLM usage:
 - **Default values**: Most parameters have sensible defaults to reduce required input
 - **Optional fields**: Many fields are now optional to ease integration
 
-## 📊 Loop Detection Strategies
+## 📊 Advanced Loop Detection Strategies
 
-### 1. Action Trace Analysis (Default)
+### 1. Enhanced Action Trace Analysis
 
-- Detects repetitive action patterns using statistical methods
-- Configurable repetition threshold (default: 0.4)
-- Identifies oscillating behaviors (A-B-A-B patterns)
-- Configurable alternating threshold (default: 0.5)
+- **Entropy Analysis**: Measures information content and randomness in action sequences
+- **Autocorrelation Detection**: Identifies periodic and cyclical patterns using statistical correlation
+- **Time Series Analysis**: Trend detection using linear regression and moving averages
+- **FFT Analysis**: Frequency domain analysis to detect dominant behavioral patterns
+- **Statistical Variance**: Monitors action diversity and repetition patterns
+- **Configurable Thresholds**: Adaptive detection based on domain-specific indicators
 
-### 2. State Invariance Tracking
+### 2. Advanced State Invariance Tracking
 
-- Monitors environment state changes
-- Uses hashing for state fingerprinting
-- Detects when agents revisit identical states
+- **MD5 State Fingerprinting**: Cryptographic hashing for exact state matching
+- **Statistical Distance**: Euclidean distance calculation for state similarity
+- **Fuzzy State Matching**: Similarity-based detection for near-identical states
+- **Temporal Context**: Combines state with recent action history for better accuracy
+- **Hash Similarity**: Character-level similarity scoring for related states
 
-### 3. Progress Heuristic Evaluation
+### 3. Sophisticated Progress Evaluation
 
-- Tracks quantitative progress metrics:
-  - **Information Gain**: Discovery of new elements/information
-  - **Goal Proximity**: Distance to target goal
-  - **Task Completion**: Percentage of subtasks completed
-- Detects stagnation and regression patterns
+- **Multi-Modal Analysis**: Combines multiple progress indicators
+- **Trend Analysis**: Linear regression-based slope detection for progress trends
+- **Cyclicity Detection**: FFT-based frequency analysis for repetitive cycles
+- **Stagnation Scoring**: Variance-based detection of behavioral stagnation
+- **Progress Rate Calculation**: Action-to-step ratio monitoring
+- **Diversity Metrics**: Action uniqueness and variety scoring
 
 ### Configuration Options
 
@@ -336,6 +357,13 @@ Define action patterns that indicate positive progress to reduce false positives
 - **alternating_threshold**: Sensitivity for A-B-A-B patterns (0.0-1.0, default: 0.5)
 - **progress_threshold_adjustment**: How much to increase thresholds when progress is detected (default: 0.2)
 
+#### Advanced Statistical Thresholds
+
+- **entropy_threshold**: Threshold for entropy-based anomaly detection (default: 0.6)
+- **variance_threshold**: Threshold for variance-based stagnation detection (default: 0.1)
+- **trend_threshold**: Threshold for trend-based progress detection (default: 0.1)
+- **cyclicity_threshold**: Threshold for detecting cyclical patterns (default: 0.3)
+
 ## 🔧 Recovery Patterns
 
 The system implements five recovery patterns:
@@ -355,6 +383,12 @@ await callTool('configure_detection', {
   min_actions_for_detection: 5,
   repetition_threshold: 0.3, // More sensitive for shopping flows
   alternating_threshold: 0.4,
+  statistical_analysis: {
+    entropy_threshold: 0.5,
+    variance_threshold: 0.08,
+    trend_threshold: 0.08,
+    cyclicity_threshold: 0.25
+  }
 });
 
 // Start monitoring an agent working on a checkout task
@@ -392,6 +426,10 @@ await callTool('configure_detection', {
   progress_indicators: ['added_to_cart', 'checkout_success', 'payment_complete', 'order_confirmed'],
   repetition_threshold: 0.3, // More sensitive due to critical user flows
   min_actions_for_detection: 4,
+  statistical_analysis: {
+    entropy_threshold: 0.5,
+    variance_threshold: 0.08
+  }
 });
 ```
 
@@ -403,6 +441,10 @@ await callTool('configure_detection', {
   repetition_threshold: 0.5, // Less sensitive, exploration is normal
   alternating_threshold: 0.6,
   min_actions_for_detection: 8,
+  statistical_analysis: {
+    entropy_threshold: 0.7,
+    cyclicity_threshold: 0.4
+  }
 });
 ```
 
@@ -413,19 +455,32 @@ await callTool('configure_detection', {
   progress_indicators: ['login_success', 'form_submitted', 'validation_passed', 'redirect'],
   repetition_threshold: 0.2, // Very sensitive to failed attempts
   min_actions_for_detection: 3,
+  statistical_analysis: {
+    entropy_threshold: 0.4,
+    variance_threshold: 0.05
+  }
 });
 ```
 
 ## 📚 Theoretical Foundation
 
-This implementation is based on established cognitive science and AI research:
+This implementation combines cognitive science, AI research, and advanced computational methods:
 
+### Cognitive Science & AI Theory
 - **Metacognition**: "Thinking about thinking" - monitoring and controlling cognitive processes
 - **Einstellung Effect**: Cognitive bias where familiar solutions prevent seeing better alternatives
 - **Functional Fixedness**: Mental block against using tools in novel ways
 - **Means-Ends Analysis**: Problem-solving by reducing differences between current and goal states
 - **AGM Belief Revision**: Formal framework for rationally updating beliefs
 - **Case-Based Reasoning**: Problem-solving by adapting solutions from similar past problems
+
+### Advanced Computational Methods
+- **Information Theory**: Entropy-based anomaly detection and pattern recognition
+- **Digital Signal Processing**: FFT analysis for frequency domain pattern detection
+- **Statistical Analysis**: Autocorrelation, variance, and trend analysis
+- **Natural Language Processing**: Semantic similarity and sentiment analysis
+- **Machine Learning**: Vector similarity and clustering techniques
+- **Time Series Analysis**: Temporal pattern recognition and forecasting
 
 ## 🔬 Research Applications
 
@@ -437,6 +492,10 @@ This framework enables research in:
 - **Explainable AI**: Transparent failure diagnosis and recovery planning
 - **Human-AI collaboration**: Escalation patterns and intervention strategies
 - **Domain adaptation**: Customizable detection for different task environments
+- **Behavioral Analysis**: Statistical modeling of agent behavior patterns
+- **Anomaly Detection**: Advanced statistical methods for outlier identification
+- **Semantic AI**: NLP-powered belief systems and reasoning
+- **Time Series AI**: Temporal pattern recognition in autonomous systems
 
 ## 📄 License
 

@@ -8,6 +8,11 @@ import {
   RecoveryPattern,
   Case,
 } from './types.js';
+import natural from 'natural';
+import nlp from 'compromise';
+
+// Extract needed components from natural
+const { SentimentAnalyzer, PorterStemmer, WordTokenizer } = natural;
 
 export class Adjudicator {
   private caseBase: Case[] = [];
@@ -46,25 +51,54 @@ export class Adjudicator {
     };
   }
 
+  /**
+   * Enhanced semantic belief contradiction detection using NLP
+   */
   private doesEvidenceContradictBelief(belief: string, evidence: string): boolean {
-    // Simple heuristic - check for contradictory keywords
-    const beliefLower = belief.toLowerCase();
-    const evidenceLower = evidence.toLowerCase();
-
-    // If evidence mentions failure and belief is about success, they contradict
-    if (
-      evidenceLower.includes('ineffective') ||
-      evidenceLower.includes('loop') ||
-      evidenceLower.includes('failed')
-    ) {
-      return (
-        beliefLower.includes('effective') ||
-        beliefLower.includes('working') ||
-        beliefLower.includes('successful')
+    // Parse with compromise for semantic understanding
+    const beliefDoc = nlp(belief);
+    const evidenceDoc = nlp(evidence);
+    
+    // Extract sentiment and key terms using natural library
+    const tokenizer = new WordTokenizer();
+    const analyzer = new SentimentAnalyzer('English', PorterStemmer, 'afinn');
+    
+    const beliefTokens = tokenizer.tokenize(belief) || [];
+    const evidenceTokens = tokenizer.tokenize(evidence) || [];
+    
+    const beliefSentiment = analyzer.getSentiment(beliefTokens);
+    const evidenceSentiment = analyzer.getSentiment(evidenceTokens);
+    
+    // Check for contradictory sentiment (positive vs negative)
+    const sentimentContradiction = Math.abs(beliefSentiment - evidenceSentiment) > 0.5;
+    
+    // Extract key terms for semantic analysis
+    const beliefTerms = beliefDoc.terms().out('array');
+    const evidenceTerms = evidenceDoc.terms().out('array');
+    
+    // Check for contradictory keywords using natural language processing
+    const contradictoryPairs = [
+      ['effective', 'ineffective'],
+      ['working', 'failed'],
+      ['successful', 'loop'],
+      ['progress', 'stuck'],
+      ['advancing', 'repeating']
+    ];
+    
+    for (const [positive, negative] of contradictoryPairs) {
+      const beliefHasPositive = beliefTerms.some((term: string) => 
+        PorterStemmer.stem(term.toLowerCase()) === PorterStemmer.stem(positive)
       );
+      const evidenceHasNegative = evidenceTerms.some((term: string) => 
+        PorterStemmer.stem(term.toLowerCase()) === PorterStemmer.stem(negative)
+      );
+      
+      if (beliefHasPositive && evidenceHasNegative) {
+        return true;
+      }
     }
-
-    return false;
+    
+    return sentimentContradiction;
   }
 
   /**
@@ -181,7 +215,11 @@ export class Adjudicator {
   }
 
   private gatherEvidence(hypothesis: FailureHypothesis, trace: CognitiveTrace): string[] {
-    const evidence: string[] = [];
+    // First get semantic evidence
+    const semanticEvidence = this.gatherSemanticEvidence(hypothesis, trace);
+    
+    // Then add traditional pattern-based evidence
+    const evidence: string[] = [...semanticEvidence];
     const recentActions = trace.recent_actions.slice(-5);
 
     switch (hypothesis) {
@@ -401,14 +439,135 @@ export class Adjudicator {
     }
   }
 
+  /**
+   * Enhanced semantic similarity calculation using multiple NLP techniques
+   */
   private calculateCaseSimilarity(current: string, stored: string): number {
-    // Simple string similarity using common tokens
-    const currentTokens = current.toLowerCase().split(/\s+/);
-    const storedTokens = stored.toLowerCase().split(/\s+/);
-    const commonTokens = currentTokens.filter((token) => storedTokens.includes(token));
-    const similarity = commonTokens.length / Math.max(currentTokens.length, storedTokens.length);
+    // Parse both texts with compromise
+    const currentDoc = nlp(current);
+    const storedDoc = nlp(stored);
+    
+    // Extract and stem key terms
+    const currentTerms = currentDoc.terms().out('array')
+      .map((term: string) => PorterStemmer.stem(term.toLowerCase()))
+      .filter((term: string) => term.length > 2);
+    const storedTerms = storedDoc.terms().out('array')
+      .map((term: string) => PorterStemmer.stem(term.toLowerCase()))
+      .filter((term: string) => term.length > 2);
+    
+    // Calculate Jaccard similarity for stemmed terms
+    const jaccardSimilarity = this.calculateJaccardDistance(currentTerms, storedTerms);
+    const jaccardScore = 1 - jaccardSimilarity;
+    
+    // Calculate sentiment similarity using natural library
+    const tokenizer = new WordTokenizer();
+    const analyzer = new SentimentAnalyzer('English', PorterStemmer, 'afinn');
+    
+    const currentTokens = tokenizer.tokenize(current) || [];
+    const storedTokens = tokenizer.tokenize(stored) || [];
+    
+    const currentSentiment = analyzer.getSentiment(currentTokens);
+    const storedSentiment = analyzer.getSentiment(storedTokens);
+    const sentimentSimilarity = 1 - Math.abs(currentSentiment - storedSentiment);
+    
+    // Calculate TF-IDF based similarity for better semantic matching
+    const allTerms = [...new Set([...currentTerms, ...storedTerms])];
+    const currentVector = this.createTfIdfVector(currentTerms, allTerms);
+    const storedVector = this.createTfIdfVector(storedTerms, allTerms);
+    const cosineSimilarity = this.calculateCosineSimilarity(currentVector, storedVector);
+    
+    // Combine multiple similarity measures
+    const combinedSimilarity = (
+      jaccardScore * 0.4 + 
+      sentimentSimilarity * 0.3 + 
+      cosineSimilarity * 0.3
+    );
+    
+    return Math.max(0, Math.min(1, combinedSimilarity));
+  }
 
-    return similarity;
+  /**
+   * Create TF-IDF vector for semantic similarity
+   */
+  private createTfIdfVector(terms: string[], allTerms: string[]): number[] {
+    const termFreq = terms.reduce((freq, term) => {
+      freq[term] = (freq[term] || 0) + 1;
+      return freq;
+    }, {} as Record<string, number>);
+    
+    return allTerms.map(term => {
+      const tf = (termFreq[term] || 0) / terms.length;
+      // Simplified IDF calculation
+      const idf = Math.log(1 + (1 / Math.max(1, termFreq[term] || 0)));
+      return tf * idf;
+    });
+  }
+
+  /**
+   * Calculate cosine similarity between two vectors
+   */
+  private calculateCosineSimilarity(vecA: number[], vecB: number[]): number {
+    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+    const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+    const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+    
+    if (magnitudeA === 0 || magnitudeB === 0) return 0;
+    return dotProduct / (magnitudeA * magnitudeB);
+  }
+
+  /**
+   * Enhanced evidence gathering using semantic analysis
+   */
+  private gatherSemanticEvidence(hypothesis: FailureHypothesis, trace: CognitiveTrace): string[] {
+    const evidence: string[] = [];
+    const recentActions = trace.recent_actions.slice(-5);
+    
+    // Analyze actions semantically
+    const tokenizer = new WordTokenizer();
+    const analyzer = new SentimentAnalyzer('English', PorterStemmer, 'afinn');
+    
+    recentActions.forEach(action => {
+      const actionDoc = nlp(action);
+      const actionTokens = tokenizer.tokenize(action) || [];
+      const sentiment = analyzer.getSentiment(actionTokens);
+      const hasErrorTerms = actionDoc.has('(error|fail|not found|timeout)');
+      
+      switch (hypothesis) {
+        case 'element_state_error':
+          if (hasErrorTerms || sentiment < -0.3) {
+            evidence.push(`Action '${action}' indicates element interaction issues`);
+          }
+          break;
+        case 'network_error':
+          if (actionDoc.has('(network|timeout|connection)')) {
+            evidence.push(`Network-related issue detected in: ${action}`);
+          }
+          break;
+        case 'task_model_error':
+          if (sentiment < -0.5) {
+            evidence.push(`Negative outcome suggests task understanding issue: ${action}`);
+          }
+          break;
+      }
+    });
+    
+    return evidence;
+  }
+
+  /**
+   * Calculate Jaccard distance between two string arrays
+   */
+  private calculateJaccardDistance(set1: string[], set2: string[]): number {
+    const s1 = new Set(set1);
+    const s2 = new Set(set2);
+    
+    const intersection = new Set([...s1].filter(x => s2.has(x)));
+    const union = new Set([...s1, ...s2]);
+    
+    if (union.size === 0) return 0;
+    
+    const jaccardSimilarity = intersection.size / union.size;
+    return 1 - jaccardSimilarity; // Return distance (1 - similarity)
   }
 }
 

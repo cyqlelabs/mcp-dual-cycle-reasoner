@@ -1,5 +1,7 @@
-import { CognitiveTrace, LoopDetectionResult, LoopType, SentinelConfig } from './types.js';
+import { CognitiveTrace, LoopDetectionResult, SentinelConfig } from './types.js';
 import { createHash } from 'crypto';
+import * as ss from 'simple-statistics';
+import { distance } from 'ml-distance';
 
 export class Sentinel {
   private stateHistory: string[] = [];
@@ -17,8 +19,54 @@ export class Sentinel {
   }
 
   /**
+   * Enhanced statistical anomaly detection using entropy and advanced metrics
+   */
+  private detectStatisticalAnomalies(actions: string[]): number {
+    if (actions.length < 3) return 0;
+    
+    const actionFrequencies = this.calculateActionFrequencies(actions);
+    const frequencies = Object.values(actionFrequencies);
+    
+    // Calculate entropy-based anomaly score
+    const entropy = this.calculateEntropy(frequencies);
+    const maxEntropy = Math.log2(Object.keys(actionFrequencies).length);
+    const normalizedEntropy = maxEntropy > 0 ? entropy / maxEntropy : 0;
+    
+    // Calculate standard deviation of action intervals
+    const actionHashes = actions.map(a => this.hashAction(a));
+    const intervalVariance = actionHashes.length > 1 ? 
+      ss.variance(actionHashes.map((_, i) => i)) : 0;
+    
+    // Combine entropy and variance for anomaly score
+    const entropyScore = 1 - normalizedEntropy; // Lower entropy = higher anomaly
+    const varianceScore = intervalVariance < 0.1 ? 0.8 : 0.2; // Low variance = repetitive
+    
+    return (entropyScore * 0.7) + (varianceScore * 0.3);
+  }
+
+  /**
+   * Time series analysis for detecting temporal patterns
+   */
+  private detectTemporalPatterns(actions: string[], timestamps?: number[]): number {
+    if (actions.length < 5) return 0;
+    
+    const actionSequence = actions.map(a => this.hashAction(a));
+    
+    // Calculate autocorrelation to detect periodic patterns
+    const autocorr = this.calculateAutocorrelation(actionSequence, 1);
+    const periodicityScore = Math.abs(autocorr);
+    
+    // Moving average to detect trend changes
+    const movingAvg = this.calculateMovingAverage(actionSequence, 3);
+    const trendVariance = movingAvg.length > 1 ? ss.variance(movingAvg) : 0;
+    
+    // High periodicity + low trend variance = stuck pattern
+    return periodicityScore > 0.7 && trendVariance < 0.1 ? 0.8 : 0.2;
+  }
+
+  /**
    * Strategy 1: Action Trace Analysis & Anomaly Detection
-   * Uses statistical methods to detect anomalous patterns in action sequences
+   * Enhanced with advanced statistical methods
    */
   detectActionAnomalies(trace: CognitiveTrace, windowSize: number = 10): LoopDetectionResult {
     if (!trace.recent_actions || trace.recent_actions.length === 0) {
@@ -105,8 +153,17 @@ export class Sentinel {
       }
     }
 
-    // Combine repetition, oscillation, and alternating patterns
-    const anomalyScore = Math.max(repetitionRatio, oscillationRatio, alternatingRatio);
+    // Enhanced anomaly detection with statistical analysis
+    const statisticalAnomalyScore = this.detectStatisticalAnomalies(actionTypes);
+    const temporalPatternScore = this.detectTemporalPatterns(actionTypes);
+    
+    // Combine all detection methods
+    const basicAnomalyScore = Math.max(repetitionRatio, oscillationRatio, alternatingRatio);
+    const anomalyScore = Math.max(
+      basicAnomalyScore,
+      statisticalAnomalyScore,
+      temporalPatternScore
+    );
     
     // Adjust threshold based on whether we have progress indicators
     const anomalyThreshold = hasProgressAction ? 
@@ -118,7 +175,7 @@ export class Sentinel {
         detected: true,
         type: 'action_repetition',
         confidence: Math.min(0.95, anomalyScore + 0.1), // Conservative confidence boost
-        details: `Repetition pattern detected: ${(anomalyScore * 100).toFixed(1)}% similarity. Repetition: ${(repetitionRatio * 100).toFixed(1)}%, Oscillation: ${(oscillationRatio * 100).toFixed(1)}%, Alternating: ${(alternatingRatio * 100).toFixed(1)}%`,
+        details: `Advanced pattern detected: ${(anomalyScore * 100).toFixed(1)}% anomaly score. Repetition: ${(repetitionRatio * 100).toFixed(1)}%, Oscillation: ${(oscillationRatio * 100).toFixed(1)}%, Alternating: ${(alternatingRatio * 100).toFixed(1)}%, Statistical: ${(statisticalAnomalyScore * 100).toFixed(1)}%, Temporal: ${(temporalPatternScore * 100).toFixed(1)}%`,
         actions_involved: Array.from(uniqueActions) as string[]
       };
     }
@@ -191,8 +248,8 @@ export class Sentinel {
   }
 
   /**
-   * Strategy 3: Progress Heuristic Evaluation
-   * Monitors quantitative progress metrics for stagnation
+   * Strategy 3: Enhanced Progress Heuristic Evaluation
+   * Uses advanced time series analysis for stagnation detection
    */
   detectProgressStagnation(trace: CognitiveTrace, windowSize: number = 6): LoopDetectionResult {
     if (!trace.step_count || trace.step_count < 3) {
@@ -218,15 +275,22 @@ export class Sentinel {
       }
     }
     
-    // Use step count and action count as simple progress metrics
+    // Enhanced progress analysis using time series
+    const timeSeriesAnalysis = this.analyzeActionTimeSeries(trace);
     const progressRate = actionCount / trace.step_count;
     
-    // Check for stagnation patterns
-    const stagnationThreshold = 0.3; // 30% progress rate is considered stagnant
+    // Combine multiple stagnation indicators
+    const stagnationScore = Math.max(
+      timeSeriesAnalysis.stagnationScore,
+      timeSeriesAnalysis.cyclicityScore,
+      progressRate < 0.3 ? 0.8 : 0.2
+    );
     
-    if (progressRate < stagnationThreshold && trace.step_count > 5) {
-      const confidence = 0.75;
-      const details = `Progress stagnation detected: Progress rate=${progressRate.toFixed(3)} (actions/steps)`;
+    const stagnationThreshold = 0.6;
+    
+    if (stagnationScore > stagnationThreshold && trace.step_count > 5) {
+      const confidence = Math.min(0.95, 0.6 + stagnationScore * 0.3);
+      const details = `Advanced stagnation detected: Stagnation=${(stagnationScore * 100).toFixed(1)}%, Trend=${(timeSeriesAnalysis.trendScore * 100).toFixed(1)}%, Cyclicity=${(timeSeriesAnalysis.cyclicityScore * 100).toFixed(1)}%, Progress rate=${progressRate.toFixed(3)}`;
       
       return {
         detected: true,
@@ -307,6 +371,170 @@ export class Sentinel {
    */
   getConfig(): SentinelConfig {
     return { ...this.config };
+  }
+
+  /**
+   * Helper method to calculate action frequencies
+   */
+  private calculateActionFrequencies(actions: string[]): Record<string, number> {
+    const frequencies: Record<string, number> = {};
+    actions.forEach(action => {
+      frequencies[action] = (frequencies[action] || 0) + 1;
+    });
+    return frequencies;
+  }
+
+  /**
+   * Helper method to hash actions for numerical analysis
+   */
+  private hashAction(action: string): number {
+    let hash = 0;
+    for (let i = 0; i < action.length; i++) {
+      const char = action.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return Math.abs(hash) % 1000; // Normalize to 0-999 range
+  }
+
+  /**
+   * Enhanced state similarity using statistical distance
+   */
+  private calculateStatisticalSimilarity(state1: string, state2: string): number {
+    const tokens1 = state1.toLowerCase().split(/\s+/);
+    const tokens2 = state2.toLowerCase().split(/\s+/);
+    
+    // Convert to frequency vectors
+    const allTokens = [...new Set([...tokens1, ...tokens2])];
+    const vector1 = allTokens.map(token => tokens1.filter(t => t === token).length);
+    const vector2 = allTokens.map(token => tokens2.filter(t => t === token).length);
+    
+    // Calculate euclidean distance
+    const euclideanDistance = distance.euclidean(vector1, vector2);
+    const maxDistance = Math.sqrt(Math.max(vector1.length, vector2.length));
+    
+    return 1 - (euclideanDistance / maxDistance); // Convert to similarity score
+  }
+
+  /**
+   * Advanced time series analysis for detecting complex temporal patterns
+   */
+  private analyzeActionTimeSeries(trace: CognitiveTrace): {
+    trendScore: number;
+    cyclicityScore: number;
+    stagnationScore: number;
+  } {
+    const actions = trace.recent_actions;
+    if (actions.length < 4) {
+      return { trendScore: 0, cyclicityScore: 0, stagnationScore: 0 };
+    }
+    
+    // Convert actions to numerical sequence for analysis
+    const actionSequence = actions.map(a => this.hashAction(a));
+    
+    // Calculate trend using linear regression
+    const xValues = actionSequence.map((_, i) => i);
+    const yValues = actionSequence;
+    
+    const n = actionSequence.length;
+    const sumX = xValues.reduce((sum, x) => sum + x, 0);
+    const sumY = yValues.reduce((sum, y) => sum + y, 0);
+    const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
+    const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
+    
+    const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const trendScore = Math.abs(slope) < 0.1 ? 0.8 : 0.2; // Low slope = stagnation
+    
+    // Detect cyclicity using frequency analysis
+    const fft = this.simpleFFT(actionSequence);
+    const dominantFrequency = this.findDominantFrequency(fft);
+    const cyclicityScore = dominantFrequency > 0.3 ? 0.9 : 0.1;
+    
+    // Calculate stagnation using variance
+    const variance = ss.variance(actionSequence);
+    const stagnationScore = variance < 10 ? 0.8 : 0.2;
+    
+    return { trendScore, cyclicityScore, stagnationScore };
+  }
+
+  /**
+   * Simple FFT implementation for frequency analysis
+   */
+  private simpleFFT(sequence: number[]): number[] {
+    const n = sequence.length;
+    if (n <= 1) return sequence;
+    
+    // Simplified DFT for detecting dominant frequencies
+    const frequencies: number[] = [];
+    for (let k = 0; k < n / 2; k++) {
+      let real = 0;
+      let imag = 0;
+      for (let t = 0; t < n; t++) {
+        const angle = 2 * Math.PI * k * t / n;
+        real += sequence[t] * Math.cos(angle);
+        imag += sequence[t] * Math.sin(angle);
+      }
+      frequencies.push(Math.sqrt(real * real + imag * imag));
+    }
+    return frequencies;
+  }
+
+  /**
+   * Find dominant frequency in FFT output
+   */
+  private findDominantFrequency(fft: number[]): number {
+    if (fft.length === 0) return 0;
+    const max = Math.max(...fft);
+    const total = fft.reduce((sum, val) => sum + val, 0);
+    return total > 0 ? max / total : 0;
+  }
+
+  /**
+   * Calculate entropy manually since simple-statistics doesn't have it
+   */
+  private calculateEntropy(frequencies: number[]): number {
+    const total = frequencies.reduce((sum, freq) => sum + freq, 0);
+    if (total === 0) return 0;
+    
+    return frequencies.reduce((entropy, freq) => {
+      if (freq === 0) return entropy;
+      const probability = freq / total;
+      return entropy - probability * Math.log2(probability);
+    }, 0);
+  }
+
+  /**
+   * Calculate autocorrelation manually
+   */
+  private calculateAutocorrelation(sequence: number[], lag: number): number {
+    if (sequence.length <= lag) return 0;
+    
+    const mean = ss.mean(sequence);
+    const variance = ss.variance(sequence);
+    if (variance === 0) return 0;
+    
+    let correlation = 0;
+    const n = sequence.length - lag;
+    
+    for (let i = 0; i < n; i++) {
+      correlation += (sequence[i] - mean) * (sequence[i + lag] - mean);
+    }
+    
+    return correlation / (n * variance);
+  }
+
+  /**
+   * Calculate moving average manually
+   */
+  private calculateMovingAverage(sequence: number[], windowSize: number): number[] {
+    if (sequence.length < windowSize) return [];
+    
+    const result: number[] = [];
+    for (let i = 0; i <= sequence.length - windowSize; i++) {
+      const window = sequence.slice(i, i + windowSize);
+      result.push(ss.mean(window));
+    }
+    return result;
   }
 
   /**

@@ -6,7 +6,13 @@ export const SentinelConfigSchema = z.object({
   min_actions_for_detection: z.number().default(5).describe("Minimum number of actions required before loop detection"),
   alternating_threshold: z.number().default(0.5).describe("Threshold for detecting alternating action patterns"),
   repetition_threshold: z.number().default(0.4).describe("Threshold for detecting repetitive action patterns"),
-  progress_threshold_adjustment: z.number().default(0.2).describe("How much to increase thresholds when progress indicators are present")
+  progress_threshold_adjustment: z.number().default(0.2).describe("How much to increase thresholds when progress indicators are present"),
+  statistical_analysis: z.object({
+    entropy_threshold: z.number().default(0.6).describe("Threshold for entropy-based anomaly detection"),
+    variance_threshold: z.number().default(0.1).describe("Threshold for variance-based stagnation detection"),
+    trend_threshold: z.number().default(0.1).describe("Threshold for trend-based progress detection"),
+    cyclicity_threshold: z.number().default(0.3).describe("Threshold for detecting cyclical patterns")
+  }).optional()
 });
 
 // Simplified Core Types for LLM usability
@@ -40,7 +46,13 @@ export const LoopDetectionResultSchema = z.object({
   type: z.optional(LoopTypeSchema),
   confidence: z.number(),
   details: z.string(),
-  actions_involved: z.array(z.string()).optional()
+  actions_involved: z.array(z.string()).optional(),
+  statistical_metrics: z.object({
+    entropy_score: z.number().optional(),
+    variance_score: z.number().optional(),
+    trend_score: z.number().optional(),
+    cyclicity_score: z.number().optional()
+  }).optional()
 });
 
 // Failure Diagnosis Types
@@ -57,7 +69,12 @@ export const DiagnosisResultSchema = z.object({
   primary_hypothesis: FailureHypothesisSchema,
   confidence: z.number(),
   evidence: z.array(z.string()),
-  suggested_actions: z.array(z.string())
+  suggested_actions: z.array(z.string()),
+  semantic_analysis: z.object({
+    sentiment_score: z.number().optional(),
+    confidence_factors: z.array(z.string()).optional(),
+    evidence_quality: z.number().optional()
+  }).optional()
 });
 
 // Recovery Strategy Types
@@ -82,14 +99,24 @@ export const CaseSchema = z.object({
   problem_description: z.string().describe("Simple description of the problem"),
   solution: z.string().describe("What action resolved the issue"),
   outcome: z.boolean().describe("Whether the solution was successful"),
-  timestamp: z.number().optional().default(() => Date.now())
+  timestamp: z.number().optional().default(() => Date.now()),
+  similarity_metrics: z.object({
+    semantic_similarity: z.number().optional(),
+    jaccard_similarity: z.number().optional(),
+    cosine_similarity: z.number().optional()
+  }).optional()
 });
 
 // Belief Revision Types
 export const BeliefRevisionResultSchema = z.object({
   revised_beliefs: z.array(z.string()).describe("Updated beliefs as simple strings"),
   removed_beliefs: z.array(z.string()).describe("Beliefs that were removed"),
-  rationale: z.string().describe("Explanation for the changes")
+  rationale: z.string().describe("Explanation for the changes"),
+  semantic_analysis: z.object({
+    contradiction_score: z.number().optional(),
+    sentiment_shift: z.number().optional(),
+    confidence_level: z.number().optional()
+  }).optional()
 });
 
 // MCP Tool Input/Output Types - Simplified for better LLM usability
