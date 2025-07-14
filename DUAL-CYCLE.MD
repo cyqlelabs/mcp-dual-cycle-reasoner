@@ -1,12 +1,6 @@
-# The Reflective Agent: A Framework for
+# The Reflective Agent: A Framework for Metacognitive Self-Correction in Autonomous Web Navigation
 
-# Metacognitive Self-Correction in
-
-# Autonomous Web Navigation
-
-## Introduction: Beyond Brute Force – The Cognitive
-
-## Challenge of Agent "Stuckness"
+## Introduction: Beyond Brute Force – The Cognitive Challenge of Agent "Stuckness"
 
 The proliferation of autonomous agents capable of interacting with complex digital
 environments, such as web browsers, marks a significant advance in artificial intelligence.
@@ -39,9 +33,7 @@ strategies are synthesized into a coherent architectural blueprint, complete wit
 implementation, state representation, and advanced considerations for creating truly adaptive
 and trustworthy autonomous systems.
 
-## Section 1: The Psychology of Fixation: Cognitive
-
-## Rigidity in Human and Machine
+## Section 1: The Psychology of Fixation: Cognitive Rigidity in Human and Machine
 
 
 To engineer a solution to an agent's looping behavior, it is first essential to understand the
@@ -118,9 +110,7 @@ answer to a question that can lead to premature decision-making and an unwilling
 reconsider a chosen plan. The agent commits to its flawed plan and perseverates, lacking the
 internal mechanism to question its own assumptions and force a strategic re-evaluation.
 
-## Section 2: The Cognitive Engine: Foundational
-
-## Problem-Solving and Its Limits
+## Section 2: The Cognitive Engine: Foundational Problem-Solving and Its Limits
 
 To comprehend why an agent gets stuck, one must first model its fundamental, goal-directed
 reasoning process. The agent's actions are not random; they are guided by an underlying
@@ -192,13 +182,9 @@ searching is flawed. This understanding is crucial, as it implies that the solut
 the efficient heuristic but to augment it with a higher-level supervisory system. This system must
 be capable of monitoring the performance of the core cognitive engine and intervening when it
 detects the tell-tale signs of pathological, looping behavior. This supervisory layer is the essence
-
-
 of metacognition.
 
-## Section 3: The Sentinel: A Metacognitive Framework
-
-## for Self-Monitoring and Loop Detection
+## Section 3: The Sentinel: A Metacognitive Framework for Self-Monitoring and Loop Detection
 
 Having established the psychological and cognitive underpinnings of why an agent gets stuck,
 the next step is to equip it with the ability to recognize this state. This is the "monitoring"
@@ -284,9 +270,7 @@ to the control system that the current cognitive strategy is failing. This is a 
 metacognitive monitoring of one's own performance, analogous to a student realizing they have
 been re-reading the same paragraph without understanding it.
 
-## Section 4: The Adjudicator: Rational Re-evaluation
-
-## and Strategic Adaptation
+## Section 4: The Adjudicator: Rational Re-evaluation and Strategic Adaptation
 
 Once the Sentinel layer has detected a loop, the agent must do more than simply stop; it must
 intelligently diagnose the failure and adapt its strategy. This is the "control" aspect of
@@ -326,7 +310,6 @@ existing libraries and frameworks designed for belief revision logic.
 ### Strategy 5: Abductive Reasoning for Failure Diagnosis
 
 After invalidating its strategy, a truly intelligent agent should attempt to understand _why_ it failed.
-
 
 Abductive reasoning, distinct from deduction and induction, is the logical process of inferring the
 most plausible explanation for a set of observations. The agent's observation is the failure itself:
@@ -378,13 +361,9 @@ diagnosis ("How have I fixed this before?"). If no case exists, the agent must a
 recovery strategy (see Section 6). The outcome of this attempt is then retained as a new case,
 enriching the agent's experiential knowledge. This process transforms a simple failure into a
 learning event, allowing the agent to not only recover but also to expand its repertoire of coping
-
-
 mechanisms, a hallmark of metacognitive learning.
 
-## Section 5: An Architectural Blueprint for a
-
-## Metacognitive Agent
+## Section 5: An Architectural Blueprint for a Metacognitive Agent
 
 The strategies for monitoring and control must be integrated into a coherent computational
 framework. A simple, monolithic agent design is insufficient. Instead, a robust architecture must
@@ -467,9 +446,7 @@ which emphasizes modular memory and production rules. By grounding the proposed
 architecture in these well-understood models, we ensure it is not an ad-hoc solution but a
 principled framework for building more human-like intelligence.
 
-## Section 6: Implementation Pathways and Advanced
-
-## Considerations
+## Section 6: Implementation Pathways and Advanced Considerations
 
 Translating the architectural blueprint into a functional system requires careful consideration of
 several practical implementation details. The effectiveness of the metacognitive agent hinges on
@@ -479,8 +456,6 @@ transparency of its decision-making process.
 ### State Representation for Metacognition
 
 The adage "garbage in, garbage out" is especially true for a metacognitive system. The quality
-
-
 of the agent's self-reflection is entirely dependent on the richness and relevance of the
 information it monitors. A simple DOM snapshot is insufficient. An effective state representation
 for the metacognitive layer must be a comprehensive feature vector that captures a holistic view
@@ -579,8 +554,6 @@ revision), and multiple fields of advanced AI (anomaly detection, case-based rea
 hierarchical reinforcement learning), we can construct agents that are more robust and
 adaptive.
 The strategies detailed herein—from action trace analysis and state invariance tracking for loop
-
-
 detection, to belief revision and case-based reasoning for intelligent recovery—are not merely
 theoretical constructs. They represent a practical roadmap for implementation. By equipping an
 agent with these "Sentinel" and "Adjudicator" functions, we empower it to move beyond brittle
@@ -588,118 +561,3 @@ automation. The goal is to create agents that, when faced with the unexpected co
 the real world, do not simply break down. Instead, like their human counterparts, they pause,
 reflect, adapt, and learn. This is the path toward developing autonomous systems that are not
 just automated, but are genuinely intelligent, reliable, and trustworthy.
-
-#### Obras citadas
-
-1. Computer-Using Agent | OpenAI, https://openai.com/index/computer-using-agent/ 2.
-Metacognitive Monitoring., https://web.cortland.edu/andersmd/metacog.html 3. Metacognition -
-Wikipedia, https://en.wikipedia.org/wiki/Metacognition 4. (PDF) Metacognition: Monitoring and
-Controlling One's Own Knowledge, Reasoning and Decisions - ResearchGate,
-https://www.researchgate.net/publication/332556754_Metacognition_Monitoring_and_Controllin
-g_One's_Own_Knowledge_Reasoning_and_Decisions 5. Computational Metacognition - arXiv,
-https://arxiv.org/pdf/2201.12885 6. (PDF) Computational Metacognition - ResearchGate,
-https://www.researchgate.net/publication/358260306_Computational_Metacognition 7.
-Einstellung Effect - The Decision Lab, https://thedecisionlab.com/biases/einstellung-effect 8.
-The Einstellung effect — 42courses.com,
-https://www.42courses.com/blog/home/2019/11/21/the-einstellung-effect 9. Einstellung Effect -
-The Daily Coach, https://www.thedaily.coach/p/einstellung-effect 10. AI Automation and Testing |
-BrowserStack, https://www.browserstack.com/guide/artificial-intelligence-in-test-automation 11.
-Overcoming Functional Fixedness - Nick Gracilla,
-https://www.nickgracilla.com/posts/overcoming-functional-fixedness/ 12. Visual Web Agents with
-LangGraph: Build AI Workflows,
-https://learnopencv.com/langgraph-building-a-visual-web-browser-agent/ 13. Rigidity
-(psychology) - Wikipedia, https://en.wikipedia.org/wiki/Rigidity_(psychology) 14. Means-ends
-analysis | Description, Characteristics, History ...,
-https://www.britannica.com/science/means-ends-analysis 15. [http://www.britannica.com,](http://www.britannica.com,)
-https://www.britannica.com/science/means-ends-analysis#:~:text=means%2Dends%20analysis
-%2C%20heuristic%2C,obstacles%20encountered%20along%20the%20way. 16. Problem
-solving using means-end analysis - CAFÉ Toolkit,
-https://cafe.cognitiveload.com.au/kb/meansends 17. 7.3 Problem-Solving – Introductory
-Psychology - Open Text WSU, https://opentext.wsu.edu/psych105/chapter/7-4-problem-solving/
-18. What is AI Agent Planning? | IBM, https://www.ibm.com/think/topics/ai-agent-planning 19.
-Problem-Solving Strategies and Heuristics | Cognitive Psychology Class Notes | Fiveable,
-https://library.fiveable.me/cognitive-psychology/unit-10/problem-solving-strategies-heuristics/stu
-dy-guide/8QS7NONJNeLfn4QX 20. Assessing Metacognitive Regulation during Problem
-Solving: A Comparison of Three Measures - PMC - PubMed Central,
-https://pmc.ncbi.nlm.nih.gov/articles/PMC9862149/ 21. What Is Anomaly Detection? Examples,
-Techniques & Solutions - Splunk,
-https://www.splunk.com/en_us/blog/learn/anomaly-detection.html 22. Anomaly Detection in
-Time Series - Neptune.ai, https://neptune.ai/blog/anomaly-detection-in-time-series 23.
-Automated Anomaly Detection in Large Sequences - Université Paris Cité,
-https://helios2.mi.parisdescartes.fr/~themisp/norma/data/icde.pdf 24. Anomaly Detection in Time
-Series using ChatGPT | by István Szatmári - Medium,
-https://medium.com/@sztistvan/anomaly-detection-in-time-series-using-chatgpt-3fc48f958c
-
-
-25. Metacognition and Self-Efficacy in Action: How First-Year Students Monitor and Use
-Self-Coaching to Move Past Metacognitive Discomfort During Problem Solving | CBE—Life
-Sciences Education, https://www.lifescied.org/doi/10.1187/cbe.23-08-0158 26. The relationship
-between metacognitive monitoring, non-verbal intellectual ability, and memory performance in
-kindergarten children - Frontiers,
-https://www.frontiersin.org/journals/developmental-psychology/articles/10.3389/fdpys.2024.
-197/full 27. Belief Revision in a Nutshell - Dialnet,
-https://dialnet.unirioja.es/descarga/articulo/9678941.pdf 28. Logic of Belief Revision - Stanford
-Encyclopedia of Philosophy, https://plato.stanford.edu/entries/logic-belief-revision/ 29. Belief
-revision - Wikipedia, https://en.wikipedia.org/wiki/Belief_revision 30. Rational Belief Revision∗ -
-CiteSeerX,
-https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=d533aad551a1da8a5df08cd
-cbf88bbcfcf79ae5 31. Belief Revision Logic (AGM Basics) - YouTube,
-https://www.youtube.com/watch?v=xJC8O5VNN4U 32. tdiam/belief-revision-engine: A Python
-implementation of a ... - GitHub, https://github.com/tdiam/belief-revision-engine 33. Inductive vs.
-Deductive vs. Abductive Reasoning - Merriam-Webster,
-https://www.merriam-webster.com/grammar/deduction-vs-induction-vs-abduction 34. What are
-the different types of reasoning in AI? - Milvus,
-https://milvus.io/ai-quick-reference/what-are-the-different-types-of-reasoning-in-ai 35. What is AI
-reasoning in 2025? | AI reasoning and problem solving | Knowledge and reasoning in AI -
-Lumenalta, https://lumenalta.com/insights/what-is-ai-reasoning-in-2025 36. Problem Solving in
-AI: Reasoning Techniques - Number Analytics,
-https://www.numberanalytics.com/blog/problem-solving-in-ai-reasoning-techniques 37. (PDF)
-Case-Based Reasoning for Autonomous Service Failure ...,
-https://www.researchgate.net/publication/225245248_Case-Based_Reasoning_for_Autonomous
-_Service_Failure_Diagnosis_and_Remediation_in_Software_Systems 38. What are the
-mechanisms underlying metacognitive learning in the context of planning? - eScholarship.org,
-https://escholarship.org/content/qt58m1x3h8/qt58m1x3h8.pdf 39. Enhancing metacognitive
-reinforcement learning using reward structures and feedback ∑ ∑ - Computational Cognitive
-Science Lab,
-https://cocosci.princeton.edu/papers/Accelerating_Metacognitive_RL-CameraReady.pdf 40.
-What is the Role of Planning in Artificial Intelligence? - GeeksforGeeks,
-https://www.geeksforgeeks.org/artificial-intelligence/what-is-the-role-of-planning-in-artificial-intelli
-gence/ 41. What is Cognitive Architecture? How Intelligent Agents Think, Learn, and Adapt -
-Quiq, https://quiq.com/blog/what-is-cognitive-architecture/ 42. Hierarchical Reinforcement
-Learning - Towards Data Science,
-https://towardsdatascience.com/hierarchical-reinforcement-learning-56add31a21ab/ 43.
-Hierarchical Reinforcement Learning (HRL) in AI - GeeksforGeeks,
-https://www.geeksforgeeks.org/artificial-intelligence/hierarchical-reinforcement-learning-hrl-in-ai/
-44. Hierarchical Reinforcement Learning: Structuring Decision-Making for Complex AI Tasks -
-International Journal of Science and Healthcare Research,
-https://ijshr.com/IJSHR_Vol.7_Issue.2_April2022/IJSHR068.pdf 45. Extended Abstract - CS
-224R Deep Reinforcement Learning - Stanford University,
-https://cs224r.stanford.edu/projects/pdfs/CS_224R_Final_Project_Report__5_.pdf 46. Cognitive
-Architecture for Adaptive Problem-Solving and Computational Models of Expert Knowledge
-Acquisition in Computer Science,
-https://www.allmultidisciplinaryjournal.com/uploads/archives/20250528152729_MGE-2025-3-
-4.1.pdf 47. Cognitive Architectures in AI Agents - Matoffo,
-
-
-https://matoffo.com/cognitive-architectures-in-ai-agents/ 48. Cognitive Agent Architectures:
-Revolutionizing AI with Intelligent Decision-Making Systems,
-https://smythos.com/developers/agent-development/cognitive-agent-architectures/ 49.
-Designing Effective State Representations in Reinforcement Learning - CodeSignal,
-https://codesignal.com/learn/courses/advanced-rl-techniques-optimization-and-beyond/lessons/
-designing-effective-state-representations-in-reinforcement-learning 50. How to define states in
-reinforcement learning? - Artificial Intelligence Stack Exchange,
-https://ai.stackexchange.com/questions/7763/how-to-define-states-in-reinforcement-learning 51.
-REINFORCEMENT LEARNING ON WEB INTERFACES USING WORKFLOW-GUIDED
-EXPLORATION - Stanford NLP Group, https://nlp.stanford.edu/pubs/liu2018reinforcement.pdf
-
-52. Why AI still needs you: Exploring Human-in-the-Loop systems ...,
-https://workos.com/blog/why-ai-still-needs-you-exploring-human-in-the-loop-systems 53. Agents
-with Human in the Loop : Everything You Need to Know - DEV Community,
-https://dev.to/camelai/agents-with-human-in-the-loop-everything-you-need-to-know-3fo5 54.
-Explainable AI: Transparent Decisions for AI Agents - Rapid Innovation,
-https://www.rapidinnovation.io/post/for-developers-implementing-explainable-ai-for-transparent-
-agent-decisions 55. Explainable artificial intelligence (XAI): from inherent explainability to large
-language models - arXiv, https://arxiv.org/html/2501.09967v1 56. XAI: Explainable Artificial
-Intelligence - DARPA, https://www.darpa.mil/research/programs/explainable-artificial-intelligence
-57. Explainable AI Made Simple: Techniques, Tools & How To Tutorials - Spot Intelligence,
-https://spotintelligence.com/2024/01/15/explainable-ai/
