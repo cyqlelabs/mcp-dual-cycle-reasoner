@@ -31,7 +31,7 @@ export class SemanticAnalyzer {
     try {
       this.nliClassifier = await pipeline<'zero-shot-classification'>(
         'zero-shot-classification',
-        'MoritzLaurer/deberta-v3-base-zeroshot-v1.1-all-33'
+        'MoritzLaurer/deberta-v3-large-zeroshot-v1.1-all-33'
       );
       this.isInitialized = true;
       console.log('NLI model initialized successfully');
