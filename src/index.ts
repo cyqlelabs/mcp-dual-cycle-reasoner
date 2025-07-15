@@ -20,6 +20,7 @@ import {
   SentinelConfig,
 } from './types.js';
 import { semanticAnalyzer } from './semantic-analyzer.js';
+import { DESCRIPTIONS } from './constants.js';
 import chalk from 'chalk';
 
 /**
@@ -90,12 +91,12 @@ class DualCycleReasonerServer {
               properties: {
                 goal: {
                   type: 'string',
-                  description: 'The primary goal the agent is trying to achieve',
+                  description: DESCRIPTIONS.GOAL,
                 },
                 initial_beliefs: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Initial beliefs about the task and environment',
+                  description: DESCRIPTIONS.INITIAL_BELIEFS,
                   default: [],
                 },
               },
@@ -121,19 +122,19 @@ class DualCycleReasonerServer {
                 recent_actions: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'List of recent action names',
+                  description: DESCRIPTIONS.RECENT_ACTIONS,
                 },
                 current_context: {
                   type: 'string',
-                  description: 'Current environment context or state',
+                  description: `${DESCRIPTIONS.CURRENT_CONTEXT}, in low dash format. Example: adding_product_item`,
                 },
                 goal: {
                   type: 'string',
-                  description: 'Current goal being pursued',
+                  description: DESCRIPTIONS.GOAL,
                 },
                 window_size: {
                   type: 'number',
-                  description: 'Size of the monitoring window',
+                  description: DESCRIPTIONS.WINDOW_SIZE,
                   default: 10,
                 },
               },
@@ -150,20 +151,20 @@ class DualCycleReasonerServer {
                 recent_actions: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Recent actions to check for loops',
+                  description: DESCRIPTIONS.RECENT_ACTIONS,
                 },
                 current_context: {
                   type: 'string',
-                  description: 'Current environment context or state',
+                  description: `${DESCRIPTIONS.CURRENT_CONTEXT}, in low dash format. Example: sending_email`,
                 },
                 goal: {
                   type: 'string',
-                  description: 'Current goal being pursued',
+                  description: DESCRIPTIONS.GOAL,
                 },
                 detection_method: {
                   type: 'string',
                   enum: ['statistical', 'pattern', 'hybrid'],
-                  description: 'Loop detection method to use',
+                  description: DESCRIPTIONS.DETECTION_METHOD,
                   default: 'hybrid',
                 },
               },
@@ -177,35 +178,35 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                loop_detected: { type: 'boolean', description: 'Whether a loop was detected' },
+                loop_detected: { type: 'boolean', description: DESCRIPTIONS.LOOP_DETECTED },
                 loop_type: {
                   type: 'string',
                   enum: ['action_repetition', 'state_invariance', 'progress_stagnation'],
-                  description: 'Type of loop detected',
+                  description: DESCRIPTIONS.LOOP_TYPE,
                 },
-                loop_confidence: { type: 'number', description: 'Confidence in loop detection' },
-                loop_details: { type: 'string', description: 'Details about the detected loop' },
+                loop_confidence: { type: 'number', description: DESCRIPTIONS.LOOP_CONFIDENCE },
+                loop_details: { type: 'string', description: DESCRIPTIONS.LOOP_DETAILS },
                 actions_involved: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Actions involved in the loop',
+                  description: DESCRIPTIONS.ACTIONS_INVOLVED,
                 },
-                entropy_score: { type: 'number', description: 'Statistical entropy score' },
-                variance_score: { type: 'number', description: 'Statistical variance score' },
-                trend_score: { type: 'number', description: 'Statistical trend score' },
-                cyclicity_score: { type: 'number', description: 'Statistical cyclicity score' },
+                entropy_score: { type: 'number', description: DESCRIPTIONS.ENTROPY_SCORE },
+                variance_score: { type: 'number', description: DESCRIPTIONS.VARIANCE_SCORE },
+                trend_score: { type: 'number', description: DESCRIPTIONS.TREND_SCORE },
+                cyclicity_score: { type: 'number', description: DESCRIPTIONS.CYCLICITY_SCORE },
                 recent_actions: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Recent actions from trace',
+                  description: DESCRIPTIONS.RECENT_ACTIONS,
                 },
                 current_context: {
                   type: 'string',
-                  description: 'Current environment context or state',
+                  description: DESCRIPTIONS.CURRENT_CONTEXT,
                 },
                 goal: {
                   type: 'string',
-                  description: 'Current goal being pursued',
+                  description: DESCRIPTIONS.GOAL,
                 },
               },
               required: [
@@ -227,20 +228,20 @@ class DualCycleReasonerServer {
                 current_beliefs: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Current beliefs as simple strings',
+                  description: DESCRIPTIONS.CURRENT_BELIEFS,
                 },
                 contradicting_evidence: {
                   type: 'string',
-                  description: 'Evidence that contradicts current beliefs',
+                  description: DESCRIPTIONS.CONTRADICTING_EVIDENCE,
                 },
                 recent_actions: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Recent actions from trace',
+                  description: DESCRIPTIONS.RECENT_ACTIONS,
                 },
                 goal: {
                   type: 'string',
-                  description: 'Current goal being pursued',
+                  description: DESCRIPTIONS.GOAL,
                 },
               },
               required: ['current_beliefs', 'contradicting_evidence', 'recent_actions', 'goal'],
@@ -263,38 +264,41 @@ class DualCycleReasonerServer {
                     'network_error',
                     'unknown',
                   ],
-                  description: 'Primary hypothesis from diagnosis',
+                  description: DESCRIPTIONS.PRIMARY_HYPOTHESIS,
                 },
-                diagnosis_confidence: { type: 'number', description: 'Confidence in diagnosis' },
+                diagnosis_confidence: {
+                  type: 'number',
+                  description: DESCRIPTIONS.DIAGNOSIS_CONFIDENCE,
+                },
                 evidence: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Evidence supporting the diagnosis',
+                  description: DESCRIPTIONS.EVIDENCE,
                 },
                 suggested_actions: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Suggested actions from diagnosis',
+                  description: DESCRIPTIONS.SUGGESTED_ACTIONS,
                 },
-                sentiment_score: { type: 'number', description: 'Semantic sentiment score' },
+                sentiment_score: { type: 'number', description: DESCRIPTIONS.SENTIMENT_SCORE },
                 confidence_factors: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Factors affecting confidence',
+                  description: DESCRIPTIONS.CONFIDENCE_FACTORS,
                 },
-                evidence_quality: { type: 'number', description: 'Quality of evidence' },
+                evidence_quality: { type: 'number', description: DESCRIPTIONS.EVIDENCE_QUALITY },
                 recent_actions: {
                   type: 'array',
                   items: { type: 'string' },
-                  description: 'Recent actions from trace',
+                  description: DESCRIPTIONS.RECENT_ACTIONS,
                 },
                 current_context: {
                   type: 'string',
-                  description: 'Current environment context or state',
+                  description: DESCRIPTIONS.CURRENT_CONTEXT,
                 },
                 goal: {
                   type: 'string',
-                  description: 'Current goal being pursued',
+                  description: DESCRIPTIONS.GOAL,
                 },
                 available_patterns: {
                   type: 'array',
@@ -308,7 +312,7 @@ class DualCycleReasonerServer {
                       'human_escalation',
                     ],
                   },
-                  description: 'Available recovery patterns',
+                  description: DESCRIPTIONS.AVAILABLE_PATTERNS,
                 },
               },
               required: [
@@ -330,15 +334,15 @@ class DualCycleReasonerServer {
               properties: {
                 problem_description: {
                   type: 'string',
-                  description: 'Simple description of the problem',
+                  description: DESCRIPTIONS.PROBLEM_DESCRIPTION,
                 },
                 solution: {
                   type: 'string',
-                  description: 'What action resolved the issue',
+                  description: DESCRIPTIONS.SOLUTION,
                 },
                 outcome: {
                   type: 'boolean',
-                  description: 'Whether the solution was successful',
+                  description: DESCRIPTIONS.OUTCOME,
                 },
               },
               required: ['problem_description', 'solution', 'outcome'],
@@ -353,11 +357,11 @@ class DualCycleReasonerServer {
               properties: {
                 problem_description: {
                   type: 'string',
-                  description: 'Description of current problem',
+                  description: DESCRIPTIONS.PROBLEM_DESCRIPTION,
                 },
                 max_results: {
                   type: 'number',
-                  description: 'Maximum number of cases to return',
+                  description: DESCRIPTIONS.MAX_RESULTS,
                   default: 5,
                 },
               },
@@ -382,11 +386,11 @@ class DualCycleReasonerServer {
               properties: {
                 successful: {
                   type: 'boolean',
-                  description: 'Whether the recovery was successful',
+                  description: DESCRIPTIONS.SUCCESSFUL,
                 },
                 explanation: {
                   type: 'string',
-                  description: 'Explanation of the outcome',
+                  description: DESCRIPTIONS.EXPLANATION,
                 },
               },
               required: ['successful', 'explanation'],
@@ -411,29 +415,27 @@ class DualCycleReasonerServer {
                 progress_indicators: {
                   type: 'array',
                   items: { type: 'string' },
-                  description:
-                    'Action patterns that indicate positive task progress (e.g., ["success", "complete", "found"])',
+                  description: DESCRIPTIONS.PROGRESS_INDICATORS,
                   default: [],
                 },
                 min_actions_for_detection: {
                   type: 'number',
-                  description: 'Minimum number of actions required before loop detection',
+                  description: DESCRIPTIONS.MIN_ACTIONS_FOR_DETECTION,
                   default: 5,
                 },
                 alternating_threshold: {
                   type: 'number',
-                  description: 'Threshold for detecting alternating action patterns (0.0-1.0)',
+                  description: DESCRIPTIONS.ALTERNATING_THRESHOLD,
                   default: 0.5,
                 },
                 repetition_threshold: {
                   type: 'number',
-                  description: 'Threshold for detecting repetitive action patterns (0.0-1.0)',
+                  description: DESCRIPTIONS.REPETITION_THRESHOLD,
                   default: 0.4,
                 },
                 progress_threshold_adjustment: {
                   type: 'number',
-                  description:
-                    'How much to increase thresholds when progress indicators are present',
+                  description: DESCRIPTIONS.PROGRESS_THRESHOLD_ADJUSTMENT,
                   default: 0.2,
                 },
               },
