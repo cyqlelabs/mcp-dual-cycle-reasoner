@@ -8,8 +8,7 @@
       "extract_structured_data"
     ],
     "current_context": "pricing_comparison_modal",
-    "goal": "Find the product pricing table and compare Enterprise vs Pro plans",
-    "step_count": 5
+    "goal": "Find the product pricing table and compare Enterprise vs Pro plans"
   },
   "agent_session": {
     "task": "Find the product pricing table and compare Enterprise vs Pro plans",

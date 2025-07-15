@@ -134,11 +134,6 @@ class DualCycleReasonerServer {
                       type: 'string',
                       description: 'Current goal being pursued',
                     },
-                    step_count: {
-                      type: 'number',
-                      description: 'Number of steps taken',
-                      default: 1,
-                    },
                   },
                   required: ['recent_actions', 'goal'],
                   additionalProperties: false,
@@ -174,11 +169,6 @@ class DualCycleReasonerServer {
                     goal: {
                       type: 'string',
                       description: 'Current goal being pursued',
-                    },
-                    step_count: {
-                      type: 'number',
-                      description: 'Number of steps taken',
-                      default: 1,
                     },
                   },
                   required: ['recent_actions', 'goal'],

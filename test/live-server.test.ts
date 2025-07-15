@@ -319,7 +319,6 @@ describe('Live MCP Server Integration', () => {
       const partialTrace = {
         ...trace,
         recent_actions: trace.recent_actions.slice(0, 3),
-        step_count: 3,
       };
 
       await mcpClient.callTool({

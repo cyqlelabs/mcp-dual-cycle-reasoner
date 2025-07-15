@@ -1,13 +1,13 @@
 import { Sentinel } from './sentinel.js';
 import { Adjudicator } from './adjudicator.js';
-import { 
-  CognitiveTrace, 
-  LoopDetectionResult, 
-  DiagnosisResult, 
-  RecoveryPlan, 
-  BeliefRevisionResult, 
+import {
+  CognitiveTrace,
+  LoopDetectionResult,
+  DiagnosisResult,
+  RecoveryPlan,
+  BeliefRevisionResult,
   Case,
-  SentinelConfig
+  SentinelConfig,
 } from './types.js';
 import { v4 as uuidv4 } from 'uuid';
 import chalk from 'chalk';
@@ -39,7 +39,6 @@ export class DualCycleEngine {
       recent_actions: [],
       current_context: undefined,
       goal: '',
-      step_count: 0
     };
   }
 
@@ -51,7 +50,7 @@ export class DualCycleEngine {
     this.currentTrace = this.initializeTrace();
     this.currentTrace.goal = initialGoal;
     this.interventionCount = 0;
-    
+
     console.log(chalk.blue('🧠 Dual-Cycle Engine: Metacognitive monitoring started'));
     console.log(chalk.gray(`Goal: ${initialGoal}`));
     console.log(chalk.gray(`Initial beliefs: ${initialBeliefs.length}`));
@@ -84,25 +83,33 @@ export class DualCycleEngine {
     // Update current trace
     this.currentTrace = { ...this.currentTrace, ...trace };
 
-    console.log(chalk.gray(`\n📊 Processing trace update: ${trace.recent_actions.length} actions, step ${trace.step_count}`));
+    console.log(chalk.gray(`\n📊 Processing trace update: ${trace.recent_actions.length} actions`));
 
     // METACOGNITIVE CYCLE - Phase 1: MONITOR
     const loopDetection = this.monitorForLoops(trace);
 
     if (!loopDetection.detected) {
       console.log(chalk.green('✅ No loops detected - cognitive cycle proceeding normally'));
-      return { 
-        intervention_required: false, 
-        loop_detected: loopDetection 
+      return {
+        intervention_required: false,
+        loop_detected: loopDetection,
       };
     }
 
-    console.log(chalk.yellow(`⚠️  Loop detected: ${loopDetection.type} (confidence: ${(loopDetection.confidence * 100).toFixed(1)}%)`));
+    console.log(
+      chalk.yellow(
+        `⚠️  Loop detected: ${loopDetection.type} (confidence: ${(loopDetection.confidence * 100).toFixed(1)}%)`
+      )
+    );
     console.log(chalk.yellow(`   Details: ${loopDetection.details}`));
 
     // METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
     const diagnosis = await this.interpretFailure(loopDetection, trace);
-    console.log(chalk.red(`🔍 Diagnosis: ${diagnosis.primary_hypothesis} (confidence: ${(diagnosis.confidence * 100).toFixed(1)}%)`));
+    console.log(
+      chalk.red(
+        `🔍 Diagnosis: ${diagnosis.primary_hypothesis} (confidence: ${(diagnosis.confidence * 100).toFixed(1)}%)`
+      )
+    );
     console.log(chalk.red(`   Evidence: ${diagnosis.evidence.join('; ')}`));
 
     // METACOGNITIVE CYCLE - Phase 3: PLAN (Meta-Level)
@@ -112,7 +119,11 @@ export class DualCycleEngine {
 
     // METACOGNITIVE CYCLE - Phase 4: CONTROL (Meta-Level)
     const beliefRevision = await this.controlCognition(loopDetection, diagnosis, trace);
-    console.log(chalk.magenta(`🧠 Beliefs revised: ${beliefRevision.revised_beliefs.length} beliefs, ${beliefRevision.removed_beliefs.length} removed`));
+    console.log(
+      chalk.magenta(
+        `🧠 Beliefs revised: ${beliefRevision.revised_beliefs.length} beliefs, ${beliefRevision.removed_beliefs.length} removed`
+      )
+    );
 
     // Store this experience for future learning
     this.storeExperience(loopDetection, diagnosis, recoveryPlan, trace);
@@ -120,9 +131,9 @@ export class DualCycleEngine {
     this.interventionCount++;
 
     const explanation = this.generateInterventionExplanation(
-      loopDetection, 
-      diagnosis, 
-      recoveryPlan, 
+      loopDetection,
+      diagnosis,
+      recoveryPlan,
       beliefRevision
     );
 
@@ -134,7 +145,7 @@ export class DualCycleEngine {
       diagnosis,
       recovery_plan: recoveryPlan,
       revised_beliefs: beliefRevision,
-      explanation
+      explanation,
     };
   }
 
@@ -150,7 +161,10 @@ export class DualCycleEngine {
    * METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
    * Uses the Adjudicator to diagnose the failure
    */
-  private async interpretFailure(loopResult: LoopDetectionResult, trace: CognitiveTrace): Promise<DiagnosisResult> {
+  private async interpretFailure(
+    loopResult: LoopDetectionResult,
+    trace: CognitiveTrace
+  ): Promise<DiagnosisResult> {
     return await this.adjudicator.diagnoseFailure(loopResult, trace);
   }
 
@@ -167,20 +181,16 @@ export class DualCycleEngine {
    * Revises beliefs and prepares cognitive control signals
    */
   private async controlCognition(
-    loopResult: LoopDetectionResult, 
-    diagnosis: DiagnosisResult, 
+    loopResult: LoopDetectionResult,
+    diagnosis: DiagnosisResult,
     trace: CognitiveTrace
   ): Promise<BeliefRevisionResult> {
     const contradictingEvidence = `Loop detected: ${loopResult.type}. Diagnosis: ${diagnosis.primary_hypothesis}. Current strategy is ineffective.`;
-    
+
     // For simplified traces, we'll use empty beliefs array as default
     const currentBeliefs: string[] = [];
-    
-    return await this.adjudicator.reviseBeliefs(
-      currentBeliefs, 
-      contradictingEvidence, 
-      trace
-    );
+
+    return await this.adjudicator.reviseBeliefs(currentBeliefs, contradictingEvidence, trace);
   }
 
   /**
@@ -197,7 +207,7 @@ export class DualCycleEngine {
       problem_description: `${loopResult.type} loop detected: ${diagnosis.primary_hypothesis} in context: ${this.extractContextSummary(trace)}`,
       solution: `Apply ${recoveryPlan.pattern} strategy: ${recoveryPlan.rationale}`,
       outcome: false, // Will be updated when outcome is known
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.adjudicator.storeExperience(experience);
@@ -215,11 +225,13 @@ export class DualCycleEngine {
     const loopType = loopResult.type?.replace('_', ' ') || 'unknown';
     const hypothesis = diagnosis.primary_hypothesis.replace('_', ' ');
     const pattern = recoveryPlan.pattern.replace('_', ' ');
-    
-    return `Detected ${loopType} loop (${(loopResult.confidence * 100).toFixed(0)}% confidence). ` +
-           `Diagnosed as ${hypothesis} issue. ` +
-           `Applying ${pattern} recovery strategy. ` +
-           `Revised ${beliefRevision.revised_beliefs.length} beliefs to maintain consistency.`;
+
+    return (
+      `Detected ${loopType} loop (${(loopResult.confidence * 100).toFixed(0)}% confidence). ` +
+      `Diagnosed as ${hypothesis} issue. ` +
+      `Applying ${pattern} recovery strategy. ` +
+      `Revised ${beliefRevision.revised_beliefs.length} beliefs to maintain consistency.`
+    );
   }
 
   /**
@@ -228,11 +240,12 @@ export class DualCycleEngine {
   private extractContextSummary(trace: CognitiveTrace): string {
     const recentActions = trace.recent_actions.slice(-3).join(' -> ');
     const currentContext = trace.current_context || 'unknown';
-    
-    return `Goal: ${trace.goal.substring(0, 50)}..., ` +
-           `Recent actions: ${recentActions}, ` +
-           `Context: ${currentContext}, ` +
-           `Step: ${trace.step_count}`;
+
+    return (
+      `Goal: ${trace.goal.substring(0, 50)}..., ` +
+      `Recent actions: ${recentActions}, ` +
+      `Context: ${currentContext}`
+    );
   }
 
   /**
@@ -248,7 +261,7 @@ export class DualCycleEngine {
       is_monitoring: this.isMonitoring,
       intervention_count: this.interventionCount,
       current_goal: this.currentTrace.goal,
-      trace_length: this.currentTrace.recent_actions.length
+      trace_length: this.currentTrace.recent_actions.length,
     };
   }
 
@@ -258,7 +271,11 @@ export class DualCycleEngine {
   updateRecoveryOutcome(successful: boolean, explanation: string): void {
     // In a full implementation, this would update the most recent case
     // For now, we'll just log it
-    console.log(chalk.cyan(`📝 Recovery outcome updated: ${successful ? 'SUCCESS' : 'FAILURE'} - ${explanation}`));
+    console.log(
+      chalk.cyan(
+        `📝 Recovery outcome updated: ${successful ? 'SUCCESS' : 'FAILURE'} - ${explanation}`
+      )
+    );
   }
 
   /**

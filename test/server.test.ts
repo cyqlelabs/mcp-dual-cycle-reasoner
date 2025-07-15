@@ -13,12 +13,12 @@ jest.mock('chalk', () => ({
     gray: (str: string) => str,
     magenta: (str: string) => str,
     cyan: (str: string) => str,
-  }
+  },
 }));
 
 // Mock UUID to avoid potential issues
 jest.mock('uuid', () => ({
-  v4: () => 'test-uuid-1234'
+  v4: () => 'test-uuid-1234',
 }));
 
 // Mock semantic analyzer to avoid initialization issues
@@ -28,19 +28,19 @@ jest.mock('../src/semantic-analyzer', () => ({
     analyzeTextPair: jest.fn(async () => ({
       similarity: 0.8,
       confidence: 0.9,
-      sentiment: 0.1
+      sentiment: 0.1,
     })),
     assessActionOutcome: jest.fn(async () => ({
       success_probability: 0.7,
       confidence: 0.8,
-      sentiment: 0.2
+      sentiment: 0.2,
     })),
     assessBeliefContradiction: jest.fn(async () => ({
       contradicts: true,
       confidence: 0.8,
-      reasoning: 'Evidence contradicts belief'
-    }))
-  }
+      reasoning: 'Evidence contradicts belief',
+    })),
+  },
 }));
 
 import { DualCycleEngine } from '../src/dual-cycle-engine';
@@ -69,7 +69,7 @@ describe('DualCycleEngine with Fixtures', () => {
       progress_threshold_adjustment: 0.1,
     };
     engine = new DualCycleEngine(config);
-    
+
     // Initialize semantic analyzer for tests
     const { semanticAnalyzer } = await import('../src/semantic-analyzer');
     await semanticAnalyzer.initialize();
@@ -159,10 +159,10 @@ describe('DualCycleEngine with Fixtures', () => {
     it('should confirm browser_use_loop_fixture.json triggers loop detection', async () => {
       // This is the critical test - the loop fixture should ALWAYS trigger a loop
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
-      
+
       engine.startMonitoring(trace.goal, []);
       const result = await engine.processTraceUpdate(trace);
-      
+
       // Assert that the loop fixture definitively triggers loop detection
       expect(result.intervention_required).toBe(true);
       expect(result.loop_detected?.detected).toBe(true);
@@ -177,18 +177,18 @@ describe('DualCycleEngine with Fixtures', () => {
       const complexTrace: CognitiveTrace = complexScenarioFixture.cognitive_trace;
       engine.startMonitoring(complexTrace.goal, []);
       const complexResult = await engine.processTraceUpdate(complexTrace);
-      
+
       expect(complexResult.intervention_required).toBe(false);
       expect(complexResult.loop_detected?.detected).toBe(false);
-      
+
       // Reset for next test
       engine.reset();
-      
+
       // Scroll fixture should NOT trigger loop detection
       const scrollTrace: CognitiveTrace = scrollFixture.cognitive_trace;
       engine.startMonitoring(scrollTrace.goal, []);
       const scrollResult = await engine.processTraceUpdate(scrollTrace);
-      
+
       expect(scrollResult.intervention_required).toBe(false);
       expect(scrollResult.loop_detected?.detected).toBe(false);
     });
@@ -376,7 +376,6 @@ describe('DualCycleEngine with Fixtures', () => {
         recent_actions: ['scroll_down', 'found_element', 'click_success'],
         current_context: 'task_completion',
         goal: 'Find and click button',
-        step_count: 3,
       };
 
       progressEngine.startMonitoring(progressTrace.goal, []);
@@ -417,7 +416,6 @@ describe('DualCycleEngine with Fixtures', () => {
       const partialTrace = {
         ...scrollTrace,
         recent_actions: scrollTrace.recent_actions.slice(0, 2),
-        step_count: 2,
       };
 
       const result1 = await engine.processTraceUpdate(partialTrace);
@@ -449,4 +447,3 @@ describe('DualCycleEngine with Fixtures', () => {
     });
   });
 });
-

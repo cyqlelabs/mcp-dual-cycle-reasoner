@@ -6,8 +6,7 @@
       "click_element_by_index"
     ],
     "current_context": "newsletter_subscription_form",
-    "goal": "Find and click the 'Subscribe' button on the page",
-    "step_count": 4
+    "goal": "Find and click the 'Subscribe' button on the page"
   },
   "agent_session": {
     "task": "Find and click the 'Subscribe' button on the page",

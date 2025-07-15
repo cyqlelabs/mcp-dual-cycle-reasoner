@@ -30,8 +30,7 @@ export const EnvironmentStateSchema = z.object({
 export const CognitiveTraceSchema = z.object({
   recent_actions: z.array(z.string()).describe("List of recent action names"),
   current_context: z.string().optional().describe("Current environment context or state"),
-  goal: z.string().describe("Current goal being pursued"),
-  step_count: z.number().default(1).describe("Number of steps taken")
+  goal: z.string().describe("Current goal being pursued")
 });
 
 // Loop Detection Types
@@ -124,8 +123,7 @@ export const MonitorCognitiveTraceInputSchema = z.object({
   trace: z.object({
     recent_actions: z.array(z.string()).describe("List of recent action names"),
     current_context: z.string().optional().describe("Current environment context or state"),
-    goal: z.string().describe("Current goal being pursued"),
-    step_count: z.number().default(1).describe("Number of steps taken")
+    goal: z.string().describe("Current goal being pursued")
   }),
   window_size: z.number().default(10)
 });
@@ -134,8 +132,7 @@ export const DetectLoopInputSchema = z.object({
   trace: z.object({
     recent_actions: z.array(z.string()).describe("Recent actions to check for loops"),
     current_context: z.string().optional().describe("Current environment context or state"),
-    goal: z.string().describe("Current goal being pursued"),
-    step_count: z.number().default(1).describe("Number of steps taken")
+    goal: z.string().describe("Current goal being pursued")
   }),
   detection_method: z.enum(['statistical', 'pattern', 'hybrid']).default('hybrid')
 });

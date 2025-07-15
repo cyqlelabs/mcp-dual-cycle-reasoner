@@ -257,7 +257,7 @@ export class Sentinel {
    * Uses advanced time series analysis for stagnation detection
    */
   detectProgressStagnation(trace: CognitiveTrace, windowSize: number = 6): LoopDetectionResult {
-    if (!trace.step_count || trace.step_count < 3) {
+    if (!trace.recent_actions.length || trace.recent_actions.length < 3) {
       return { detected: false, confidence: 0, details: 'Insufficient step history' };
     }
 
@@ -282,7 +282,7 @@ export class Sentinel {
 
     // Enhanced progress analysis using time series
     const timeSeriesAnalysis = this.analyzeActionTimeSeries(trace);
-    const progressRate = actionCount / trace.step_count;
+    const progressRate = actionCount / trace.recent_actions.length;
 
     // Combine multiple stagnation indicators
     const stagnationScore = Math.max(
@@ -293,7 +293,7 @@ export class Sentinel {
 
     const stagnationThreshold = 0.6;
 
-    if (stagnationScore > stagnationThreshold && trace.step_count > 5) {
+    if (stagnationScore > stagnationThreshold && trace.recent_actions.length > 5) {
       const confidence = Math.min(0.95, 0.6 + stagnationScore * 0.3);
       const details = `Advanced stagnation detected: Stagnation=${(stagnationScore * 100).toFixed(1)}%, Trend=${(timeSeriesAnalysis.trendScore * 100).toFixed(1)}%, Cyclicity=${(timeSeriesAnalysis.cyclicityScore * 100).toFixed(1)}%, Progress rate=${progressRate.toFixed(3)}`;
 
@@ -404,7 +404,6 @@ export class Sentinel {
     }
     return Math.abs(hash) % 1000; // Normalize to 0-999 range
   }
-
 
   /**
    * Advanced time series analysis for detecting complex temporal patterns

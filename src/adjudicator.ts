@@ -225,7 +225,7 @@ export class Adjudicator {
         break;
 
       case 'task_model_error':
-        if (trace.step_count > 5) {
+        if (trace.recent_actions.length > 5) {
           const hasProgress = trace.recent_actions.length > 0;
           if (!hasProgress) {
             evidence.push('No progress suggests incorrect task understanding');
