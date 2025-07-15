@@ -120,7 +120,28 @@ class DualCycleReasonerServer {
               properties: {
                 trace: {
                   type: 'object',
-                  description: 'The cognitive trace to monitor',
+                  properties: {
+                    recent_actions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'List of recent action names',
+                    },
+                    current_context: {
+                      type: 'string',
+                      description: 'Current environment context or state',
+                    },
+                    goal: {
+                      type: 'string',
+                      description: 'Current goal being pursued',
+                    },
+                    step_count: {
+                      type: 'number',
+                      description: 'Number of steps taken',
+                      default: 1,
+                    },
+                  },
+                  required: ['recent_actions', 'goal'],
+                  additionalProperties: false,
                 },
                 window_size: {
                   type: 'number',
@@ -129,6 +150,7 @@ class DualCycleReasonerServer {
                 },
               },
               required: ['trace'],
+              additionalProperties: false,
             },
           },
           {
@@ -139,7 +161,28 @@ class DualCycleReasonerServer {
               properties: {
                 trace: {
                   type: 'object',
-                  description: 'The cognitive trace to analyze',
+                  properties: {
+                    recent_actions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                      description: 'Recent actions to check for loops',
+                    },
+                    current_context: {
+                      type: 'string',
+                      description: 'Current environment context or state',
+                    },
+                    goal: {
+                      type: 'string',
+                      description: 'Current goal being pursued',
+                    },
+                    step_count: {
+                      type: 'number',
+                      description: 'Number of steps taken',
+                      default: 1,
+                    },
+                  },
+                  required: ['recent_actions', 'goal'],
+                  additionalProperties: false,
                 },
                 detection_method: {
                   type: 'string',
@@ -149,6 +192,7 @@ class DualCycleReasonerServer {
                 },
               },
               required: ['trace'],
+              additionalProperties: false,
             },
           },
           {
@@ -159,14 +203,53 @@ class DualCycleReasonerServer {
               properties: {
                 loop_result: {
                   type: 'object',
-                  description: 'The loop detection result',
+                  properties: {
+                    detected: { type: 'boolean' },
+                    type: {
+                      type: 'string',
+                      enum: ['action_repetition', 'state_invariance', 'progress_stagnation'],
+                    },
+                    confidence: { type: 'number' },
+                    details: { type: 'string' },
+                    actions_involved: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                    statistical_metrics: {
+                      type: 'object',
+                      properties: {
+                        entropy_score: { type: 'number' },
+                        variance_score: { type: 'number' },
+                        trend_score: { type: 'number' },
+                        cyclicity_score: { type: 'number' },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  required: ['detected', 'confidence', 'details'],
+                  additionalProperties: false,
                 },
                 trace: {
                   type: 'object',
-                  description: 'The cognitive trace',
+                  properties: {
+                    recent_actions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                    current_context: {
+                      type: 'string',
+                      description: 'Current environment context or state',
+                    },
+                    goal: {
+                      type: 'string',
+                    },
+                  },
+                  required: ['recent_actions', 'goal'],
+                  additionalProperties: false,
                 },
               },
               required: ['loop_result', 'trace'],
+              additionalProperties: false,
             },
           },
           {
@@ -177,7 +260,8 @@ class DualCycleReasonerServer {
               properties: {
                 current_beliefs: {
                   type: 'array',
-                  description: 'Current agent beliefs',
+                  items: { type: 'string' },
+                  description: 'Current beliefs as simple strings',
                 },
                 contradicting_evidence: {
                   type: 'string',
@@ -185,10 +269,21 @@ class DualCycleReasonerServer {
                 },
                 trace: {
                   type: 'object',
-                  description: 'The cognitive trace',
+                  properties: {
+                    recent_actions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                    goal: {
+                      type: 'string',
+                    },
+                  },
+                  required: ['recent_actions', 'goal'],
+                  additionalProperties: false,
                 },
               },
               required: ['current_beliefs', 'contradicting_evidence', 'trace'],
+              additionalProperties: false,
             },
           },
           {
@@ -199,19 +294,78 @@ class DualCycleReasonerServer {
               properties: {
                 diagnosis: {
                   type: 'object',
-                  description: 'The failure diagnosis result',
+                  properties: {
+                    primary_hypothesis: {
+                      type: 'string',
+                      enum: [
+                        'element_state_error',
+                        'page_state_error',
+                        'selector_error',
+                        'task_model_error',
+                        'network_error',
+                        'unknown',
+                      ],
+                    },
+                    confidence: { type: 'number' },
+                    evidence: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                    suggested_actions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                    semantic_analysis: {
+                      type: 'object',
+                      properties: {
+                        sentiment_score: { type: 'number' },
+                        confidence_factors: {
+                          type: 'array',
+                          items: { type: 'string' },
+                        },
+                        evidence_quality: { type: 'number' },
+                      },
+                      additionalProperties: false,
+                    },
+                  },
+                  required: ['primary_hypothesis', 'confidence', 'evidence', 'suggested_actions'],
+                  additionalProperties: false,
                 },
                 trace: {
                   type: 'object',
-                  description: 'The cognitive trace',
+                  properties: {
+                    recent_actions: {
+                      type: 'array',
+                      items: { type: 'string' },
+                    },
+                    current_context: {
+                      type: 'string',
+                      description: 'Current environment context or state',
+                    },
+                    goal: {
+                      type: 'string',
+                    },
+                  },
+                  required: ['recent_actions', 'goal'],
+                  additionalProperties: false,
                 },
                 available_patterns: {
                   type: 'array',
+                  items: {
+                    type: 'string',
+                    enum: [
+                      'strategic_retreat',
+                      'context_refresh',
+                      'modality_switching',
+                      'information_foraging',
+                      'human_escalation',
+                    ],
+                  },
                   description: 'Available recovery patterns',
-                  optional: true,
                 },
               },
               required: ['diagnosis', 'trace'],
+              additionalProperties: false,
             },
           },
           {
@@ -222,10 +376,26 @@ class DualCycleReasonerServer {
               properties: {
                 case: {
                   type: 'object',
-                  description: 'The case to store for future CBR',
+                  properties: {
+                    problem_description: {
+                      type: 'string',
+                      description: 'Simple description of the problem',
+                    },
+                    solution: {
+                      type: 'string',
+                      description: 'What action resolved the issue',
+                    },
+                    outcome: {
+                      type: 'boolean',
+                      description: 'Whether the solution was successful',
+                    },
+                  },
+                  required: ['problem_description', 'solution', 'outcome'],
+                  additionalProperties: false,
                 },
               },
               required: ['case'],
+              additionalProperties: false,
             },
           },
           {
@@ -235,8 +405,8 @@ class DualCycleReasonerServer {
               type: 'object',
               properties: {
                 problem_description: {
-                  type: 'object',
-                  description: 'Description of the problem to find similar cases for',
+                  type: 'string',
+                  description: 'Description of current problem',
                 },
                 max_results: {
                   type: 'number',
@@ -245,6 +415,7 @@ class DualCycleReasonerServer {
                 },
               },
               required: ['problem_description'],
+              additionalProperties: false,
             },
           },
           {
@@ -595,4 +766,3 @@ server.run().catch((error) => {
   console.error(chalk.red('Failed to start server:'), error);
   process.exit(1);
 });
-
