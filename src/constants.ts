@@ -10,7 +10,7 @@ export const DESCRIPTIONS = {
   LOOP_CONFIDENCE: 'Confidence in loop detection',
   LOOP_DETAILS: 'Details about the detected loop',
   ACTIONS_INVOLVED: 'Actions involved in the loop',
-  DETECTION_METHOD: 'Loop detection method to use',
+  DETECTION_METHOD: 'Loop detection method to use: statistical, pattern or hybrid.',
 
   // Statistical metrics
   ENTROPY_SCORE: 'Statistical entropy score',
