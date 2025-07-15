@@ -118,25 +118,18 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                trace: {
-                  type: 'object',
-                  properties: {
-                    recent_actions: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      description: 'List of recent action names',
-                    },
-                    current_context: {
-                      type: 'string',
-                      description: 'Current environment context or state',
-                    },
-                    goal: {
-                      type: 'string',
-                      description: 'Current goal being pursued',
-                    },
-                  },
-                  required: ['recent_actions', 'goal'],
-                  additionalProperties: false,
+                recent_actions: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of recent action names',
+                },
+                current_context: {
+                  type: 'string',
+                  description: 'Current environment context or state',
+                },
+                goal: {
+                  type: 'string',
+                  description: 'Current goal being pursued',
                 },
                 window_size: {
                   type: 'number',
@@ -144,7 +137,7 @@ class DualCycleReasonerServer {
                   default: 10,
                 },
               },
-              required: ['trace'],
+              required: ['recent_actions', 'goal'],
               additionalProperties: false,
             },
           },
@@ -154,25 +147,18 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                trace: {
-                  type: 'object',
-                  properties: {
-                    recent_actions: {
-                      type: 'array',
-                      items: { type: 'string' },
-                      description: 'Recent actions to check for loops',
-                    },
-                    current_context: {
-                      type: 'string',
-                      description: 'Current environment context or state',
-                    },
-                    goal: {
-                      type: 'string',
-                      description: 'Current goal being pursued',
-                    },
-                  },
-                  required: ['recent_actions', 'goal'],
-                  additionalProperties: false,
+                recent_actions: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Recent actions to check for loops',
+                },
+                current_context: {
+                  type: 'string',
+                  description: 'Current environment context or state',
+                },
+                goal: {
+                  type: 'string',
+                  description: 'Current goal being pursued',
                 },
                 detection_method: {
                   type: 'string',
@@ -181,7 +167,7 @@ class DualCycleReasonerServer {
                   default: 'hybrid',
                 },
               },
-              required: ['trace'],
+              required: ['recent_actions', 'goal'],
               additionalProperties: false,
             },
           },
@@ -191,54 +177,44 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                loop_result: {
-                  type: 'object',
-                  properties: {
-                    detected: { type: 'boolean' },
-                    type: {
-                      type: 'string',
-                      enum: ['action_repetition', 'state_invariance', 'progress_stagnation'],
-                    },
-                    confidence: { type: 'number' },
-                    details: { type: 'string' },
-                    actions_involved: {
-                      type: 'array',
-                      items: { type: 'string' },
-                    },
-                    statistical_metrics: {
-                      type: 'object',
-                      properties: {
-                        entropy_score: { type: 'number' },
-                        variance_score: { type: 'number' },
-                        trend_score: { type: 'number' },
-                        cyclicity_score: { type: 'number' },
-                      },
-                      additionalProperties: false,
-                    },
-                  },
-                  required: ['detected', 'confidence', 'details'],
-                  additionalProperties: false,
+                loop_detected: { type: 'boolean', description: 'Whether a loop was detected' },
+                loop_type: {
+                  type: 'string',
+                  enum: ['action_repetition', 'state_invariance', 'progress_stagnation'],
+                  description: 'Type of loop detected',
                 },
-                trace: {
-                  type: 'object',
-                  properties: {
-                    recent_actions: {
-                      type: 'array',
-                      items: { type: 'string' },
-                    },
-                    current_context: {
-                      type: 'string',
-                      description: 'Current environment context or state',
-                    },
-                    goal: {
-                      type: 'string',
-                    },
-                  },
-                  required: ['recent_actions', 'goal'],
-                  additionalProperties: false,
+                loop_confidence: { type: 'number', description: 'Confidence in loop detection' },
+                loop_details: { type: 'string', description: 'Details about the detected loop' },
+                actions_involved: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Actions involved in the loop',
+                },
+                entropy_score: { type: 'number', description: 'Statistical entropy score' },
+                variance_score: { type: 'number', description: 'Statistical variance score' },
+                trend_score: { type: 'number', description: 'Statistical trend score' },
+                cyclicity_score: { type: 'number', description: 'Statistical cyclicity score' },
+                recent_actions: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Recent actions from trace',
+                },
+                current_context: {
+                  type: 'string',
+                  description: 'Current environment context or state',
+                },
+                goal: {
+                  type: 'string',
+                  description: 'Current goal being pursued',
                 },
               },
-              required: ['loop_result', 'trace'],
+              required: [
+                'loop_detected',
+                'loop_confidence',
+                'loop_details',
+                'recent_actions',
+                'goal',
+              ],
               additionalProperties: false,
             },
           },
@@ -257,22 +233,17 @@ class DualCycleReasonerServer {
                   type: 'string',
                   description: 'Evidence that contradicts current beliefs',
                 },
-                trace: {
-                  type: 'object',
-                  properties: {
-                    recent_actions: {
-                      type: 'array',
-                      items: { type: 'string' },
-                    },
-                    goal: {
-                      type: 'string',
-                    },
-                  },
-                  required: ['recent_actions', 'goal'],
-                  additionalProperties: false,
+                recent_actions: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Recent actions from trace',
+                },
+                goal: {
+                  type: 'string',
+                  description: 'Current goal being pursued',
                 },
               },
-              required: ['current_beliefs', 'contradicting_evidence', 'trace'],
+              required: ['current_beliefs', 'contradicting_evidence', 'recent_actions', 'goal'],
               additionalProperties: false,
             },
           },
@@ -282,62 +253,48 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                diagnosis: {
-                  type: 'object',
-                  properties: {
-                    primary_hypothesis: {
-                      type: 'string',
-                      enum: [
-                        'element_state_error',
-                        'page_state_error',
-                        'selector_error',
-                        'task_model_error',
-                        'network_error',
-                        'unknown',
-                      ],
-                    },
-                    confidence: { type: 'number' },
-                    evidence: {
-                      type: 'array',
-                      items: { type: 'string' },
-                    },
-                    suggested_actions: {
-                      type: 'array',
-                      items: { type: 'string' },
-                    },
-                    semantic_analysis: {
-                      type: 'object',
-                      properties: {
-                        sentiment_score: { type: 'number' },
-                        confidence_factors: {
-                          type: 'array',
-                          items: { type: 'string' },
-                        },
-                        evidence_quality: { type: 'number' },
-                      },
-                      additionalProperties: false,
-                    },
-                  },
-                  required: ['primary_hypothesis', 'confidence', 'evidence', 'suggested_actions'],
-                  additionalProperties: false,
+                primary_hypothesis: {
+                  type: 'string',
+                  enum: [
+                    'element_state_error',
+                    'page_state_error',
+                    'selector_error',
+                    'task_model_error',
+                    'network_error',
+                    'unknown',
+                  ],
+                  description: 'Primary hypothesis from diagnosis',
                 },
-                trace: {
-                  type: 'object',
-                  properties: {
-                    recent_actions: {
-                      type: 'array',
-                      items: { type: 'string' },
-                    },
-                    current_context: {
-                      type: 'string',
-                      description: 'Current environment context or state',
-                    },
-                    goal: {
-                      type: 'string',
-                    },
-                  },
-                  required: ['recent_actions', 'goal'],
-                  additionalProperties: false,
+                diagnosis_confidence: { type: 'number', description: 'Confidence in diagnosis' },
+                evidence: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Evidence supporting the diagnosis',
+                },
+                suggested_actions: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Suggested actions from diagnosis',
+                },
+                sentiment_score: { type: 'number', description: 'Semantic sentiment score' },
+                confidence_factors: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Factors affecting confidence',
+                },
+                evidence_quality: { type: 'number', description: 'Quality of evidence' },
+                recent_actions: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Recent actions from trace',
+                },
+                current_context: {
+                  type: 'string',
+                  description: 'Current environment context or state',
+                },
+                goal: {
+                  type: 'string',
+                  description: 'Current goal being pursued',
                 },
                 available_patterns: {
                   type: 'array',
@@ -354,7 +311,14 @@ class DualCycleReasonerServer {
                   description: 'Available recovery patterns',
                 },
               },
-              required: ['diagnosis', 'trace'],
+              required: [
+                'primary_hypothesis',
+                'diagnosis_confidence',
+                'evidence',
+                'suggested_actions',
+                'recent_actions',
+                'goal',
+              ],
               additionalProperties: false,
             },
           },
@@ -364,27 +328,20 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                case: {
-                  type: 'object',
-                  properties: {
-                    problem_description: {
-                      type: 'string',
-                      description: 'Simple description of the problem',
-                    },
-                    solution: {
-                      type: 'string',
-                      description: 'What action resolved the issue',
-                    },
-                    outcome: {
-                      type: 'boolean',
-                      description: 'Whether the solution was successful',
-                    },
-                  },
-                  required: ['problem_description', 'solution', 'outcome'],
-                  additionalProperties: false,
+                problem_description: {
+                  type: 'string',
+                  description: 'Simple description of the problem',
+                },
+                solution: {
+                  type: 'string',
+                  description: 'What action resolved the issue',
+                },
+                outcome: {
+                  type: 'boolean',
+                  description: 'Whether the solution was successful',
                 },
               },
-              required: ['case'],
+              required: ['problem_description', 'solution', 'outcome'],
               additionalProperties: false,
             },
           },
@@ -524,7 +481,13 @@ class DualCycleReasonerServer {
           }
 
           case 'process_trace_update': {
-            const { trace } = MonitorCognitiveTraceInputSchema.parse(args);
+            const {
+              recent_actions,
+              current_context,
+              goal,
+              window_size = 10,
+            } = MonitorCognitiveTraceInputSchema.parse(args);
+            const trace = { recent_actions, current_context, goal };
             const result = await this.engine.processTraceUpdate(trace);
 
             return {
@@ -538,7 +501,13 @@ class DualCycleReasonerServer {
           }
 
           case 'detect_loop': {
-            const { trace, detection_method = 'statistical' } = DetectLoopInputSchema.parse(args);
+            const {
+              recent_actions,
+              current_context,
+              goal,
+              detection_method = 'statistical',
+            } = DetectLoopInputSchema.parse(args);
+            const trace = { recent_actions, current_context, goal };
             // Direct access to sentinel for standalone loop detection
             const sentinel = (this.engine as any).sentinel;
             const result = sentinel.detectLoop(trace, detection_method);
@@ -554,7 +523,36 @@ class DualCycleReasonerServer {
           }
 
           case 'diagnose_failure': {
-            const { loop_result, trace } = DiagnoseFailureInputSchema.parse(args);
+            const {
+              loop_detected,
+              loop_type,
+              loop_confidence,
+              loop_details,
+              actions_involved,
+              entropy_score,
+              variance_score,
+              trend_score,
+              cyclicity_score,
+              recent_actions,
+              current_context,
+              goal,
+            } = DiagnoseFailureInputSchema.parse(args);
+
+            const loop_result = {
+              detected: loop_detected,
+              type: loop_type,
+              confidence: loop_confidence,
+              details: loop_details,
+              actions_involved,
+              statistical_metrics: {
+                entropy_score,
+                variance_score,
+                trend_score,
+                cyclicity_score,
+              },
+            };
+
+            const trace = { recent_actions, current_context, goal };
             const adjudicator = (this.engine as any).adjudicator;
             const result = await adjudicator.diagnoseFailure(loop_result, trace);
 
@@ -569,8 +567,9 @@ class DualCycleReasonerServer {
           }
 
           case 'revise_beliefs': {
-            const { current_beliefs, contradicting_evidence, trace } =
+            const { current_beliefs, contradicting_evidence, recent_actions, goal } =
               ReviseBelifsInputSchema.parse(args);
+            const trace = { recent_actions, goal };
             const adjudicator = (this.engine as any).adjudicator;
             const result = await adjudicator.reviseBeliefs(
               current_beliefs,
@@ -589,8 +588,33 @@ class DualCycleReasonerServer {
           }
 
           case 'generate_recovery_plan': {
-            const { diagnosis, trace, available_patterns } =
-              GenerateRecoveryPlanInputSchema.parse(args);
+            const {
+              primary_hypothesis,
+              diagnosis_confidence,
+              evidence,
+              suggested_actions,
+              sentiment_score,
+              confidence_factors,
+              evidence_quality,
+              recent_actions,
+              current_context,
+              goal,
+              available_patterns,
+            } = GenerateRecoveryPlanInputSchema.parse(args);
+
+            const diagnosis = {
+              primary_hypothesis,
+              confidence: diagnosis_confidence,
+              evidence,
+              suggested_actions,
+              semantic_analysis: {
+                sentiment_score,
+                confidence_factors,
+                evidence_quality,
+              },
+            };
+
+            const trace = { recent_actions, current_context, goal };
             const adjudicator = (this.engine as any).adjudicator;
             const result = adjudicator.generateRecoveryPlan(diagnosis, trace, available_patterns);
 
@@ -605,7 +629,9 @@ class DualCycleReasonerServer {
           }
 
           case 'store_experience': {
-            const { case: caseData } = StoreExperienceInputSchema.parse(args);
+            const { problem_description, solution, outcome } =
+              StoreExperienceInputSchema.parse(args);
+            const caseData = { problem_description, solution, outcome };
             const adjudicator = (this.engine as any).adjudicator;
             const storedCase = CaseSchema.parse(caseData);
             adjudicator.storeExperience(storedCase);
