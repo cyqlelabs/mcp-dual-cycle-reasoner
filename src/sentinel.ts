@@ -71,7 +71,7 @@ export class Sentinel {
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 10
   ): LoopDetectionResult {
-    if (!trace.recent_actions || trace.recent_actions.length === 0) {
+    if (!trace.recent_actions || !Array.isArray(trace.recent_actions) || trace.recent_actions.length === 0) {
       return { detected: false, confidence: 0, details: 'No action history available' };
     }
 
@@ -205,7 +205,7 @@ export class Sentinel {
     const currentStateHash = this.hashStateFeatures(stateFeatures);
 
     // Also consider recent actions as part of context for better detection
-    const actionContext = trace.recent_actions ? trace.recent_actions.slice(-3).join('->') : '';
+    const actionContext = trace.recent_actions && Array.isArray(trace.recent_actions) ? trace.recent_actions.slice(-3).join('->') : '';
     const combinedContext = `${currentContext}|${actionContext}`;
     const combinedStateHash = createHash('md5').update(combinedContext).digest('hex');
 
@@ -266,7 +266,7 @@ export class Sentinel {
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 6
   ): LoopDetectionResult {
-    if (!trace.recent_actions.length || trace.recent_actions.length < 3) {
+    if (!trace.recent_actions || !Array.isArray(trace.recent_actions) || trace.recent_actions.length < 3) {
       return { detected: false, confidence: 0, details: 'Insufficient step history' };
     }
 
@@ -423,7 +423,7 @@ export class Sentinel {
     stagnationScore: number;
   } {
     const actions = trace.recent_actions;
-    if (actions.length < 4) {
+    if (!actions || !Array.isArray(actions) || actions.length < 4) {
       return { trendScore: 0, cyclicityScore: 0, stagnationScore: 0 };
     }
 

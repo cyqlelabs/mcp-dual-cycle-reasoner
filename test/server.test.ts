@@ -219,7 +219,11 @@ describe('DualCycleEngine with Fixtures', () => {
       // Process the trace actions one by one
       let complexResult: any = { intervention_required: false, loop_detected: { detected: false } };
       for (const action of complexTrace.recent_actions) {
-        complexResult = await engine.processTraceUpdate(action, complexTrace.current_context, complexTrace.goal);
+        complexResult = await engine.processTraceUpdate(
+          action,
+          complexTrace.current_context,
+          complexTrace.goal
+        );
         // Break if intervention is required
         if (complexResult.intervention_required) {
           break;
@@ -239,7 +243,11 @@ describe('DualCycleEngine with Fixtures', () => {
       // Process the trace actions one by one
       let scrollResult: any = { intervention_required: false, loop_detected: { detected: false } };
       for (const action of scrollTrace.recent_actions) {
-        scrollResult = await engine.processTraceUpdate(action, scrollTrace.current_context, scrollTrace.goal);
+        scrollResult = await engine.processTraceUpdate(
+          action,
+          scrollTrace.current_context,
+          scrollTrace.goal
+        );
         // Break if intervention is required
         if (scrollResult.intervention_required) {
           break;
@@ -437,7 +445,11 @@ describe('DualCycleEngine with Fixtures', () => {
       // Process the trace actions one by one
       let result;
       for (const action of loopFixture.cognitive_trace.recent_actions) {
-        result = await strictEngine.processTraceUpdate(action, loopFixture.cognitive_trace.current_context, loopFixture.cognitive_trace.goal);
+        result = await strictEngine.processTraceUpdate(
+          action,
+          loopFixture.cognitive_trace.current_context,
+          loopFixture.cognitive_trace.goal
+        );
         // Stop if intervention is required
         if (result.intervention_required) {
           break;
@@ -464,7 +476,7 @@ describe('DualCycleEngine with Fixtures', () => {
         current_context: 'different_context',
         goal: 'Find and click button',
       };
-      
+
       // Process actions with different contexts to avoid state invariance
       const contexts = ['searching', 'found_target', 'clicking'];
 
@@ -531,7 +543,11 @@ describe('DualCycleEngine with Fixtures', () => {
       // Process the trace actions one by one
       let result1: any = { intervention_required: false, loop_detected: { detected: false } };
       for (const action of partialTrace.recent_actions) {
-        result1 = await engine.processTraceUpdate(action, partialTrace.current_context, partialTrace.goal);
+        result1 = await engine.processTraceUpdate(
+          action,
+          partialTrace.current_context,
+          partialTrace.goal
+        );
         if (result1.intervention_required) {
           break;
         }
@@ -543,7 +559,11 @@ describe('DualCycleEngine with Fixtures', () => {
       const remainingActions = scrollTrace.recent_actions.slice(2);
       let result2: any = result1;
       for (const action of remainingActions) {
-        result2 = await engine.processTraceUpdate(action, scrollTrace.current_context, scrollTrace.goal);
+        result2 = await engine.processTraceUpdate(
+          action,
+          scrollTrace.current_context,
+          scrollTrace.goal
+        );
         if (result2.intervention_required) {
           break;
         }
@@ -573,6 +593,124 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(status.is_monitoring).toBe(false);
       expect(status.trace_length).toBe(0);
       expect(status.intervention_count).toBe(0);
+    });
+  });
+
+  describe('Actions Accumulation Tests', () => {
+    it('should accumulate actions through complete monitoring workflow', async () => {
+      const goal = 'Find and click download button';
+      const initialBeliefs = ['Download button is visible on page'];
+
+      // Step 1: Start monitoring
+      engine.startMonitoring(goal, initialBeliefs);
+
+      let status = engine.getMonitoringStatus();
+      expect(status.is_monitoring).toBe(true);
+      expect(status.trace_length).toBe(0);
+
+      // Step 2: Add multiple actions via process_trace_update
+      const actions = ['scroll_down', 'scroll_down', 'scroll_down', 'scroll_down', 'scroll_down'];
+
+      const context = 'Looking for download button';
+      let finalResult;
+
+      for (const action of actions) {
+        finalResult = await engine.processTraceUpdate(action, context, goal);
+
+        // Check that trace length increases with each action
+        status = engine.getMonitoringStatus();
+        expect(status.trace_length).toBeGreaterThan(0);
+
+        // If loop is detected, break early
+        if (finalResult.intervention_required) {
+          break;
+        }
+      }
+
+      // Verify actions were accumulated
+      status = engine.getMonitoringStatus();
+      expect(status.trace_length).toBeGreaterThan(0);
+      expect(status.trace_length).toBeLessThanOrEqual(actions.length);
+
+      // Step 3: Call detect_loop to interpret accumulated actions
+      const sentinel = (engine as any).sentinel;
+      const enrichedTrace = engine.getEnrichedCurrentTrace();
+
+      expect(enrichedTrace).toBeDefined();
+      expect(enrichedTrace.recent_actions).toBeDefined();
+      expect(enrichedTrace.recent_actions.length).toBeGreaterThan(0);
+
+      const loopResult = sentinel.detectLoop(enrichedTrace, 'hybrid');
+
+      expect(loopResult).toBeDefined();
+      expect(loopResult.detected).toBe(true);
+      expect(loopResult.type).toBeDefined();
+      expect(loopResult.confidence).toBeGreaterThan(0);
+
+      // Verify the accumulated actions triggered loop detection
+      expect(finalResult.intervention_required).toBe(true);
+      expect(finalResult.loop_detected?.detected).toBe(true);
+
+      // Step 4: Stop monitoring
+      engine.stopMonitoring();
+
+      status = engine.getMonitoringStatus();
+      expect(status.is_monitoring).toBe(false);
+    });
+
+    it('should verify individual action accumulation during monitoring', async () => {
+      const goal = 'Navigate to pricing page';
+
+      // Start monitoring
+      engine.startMonitoring(goal, []);
+
+      const testActions = [
+        'click_element_by_index',
+        'wait_for_page_load',
+        'scroll_down',
+        'click_element_by_index',
+        'wait_for_page_load',
+        'scroll_down',
+      ];
+
+      const contexts = [
+        'Clicked navigation link',
+        'Waiting for page to load',
+        'Scrolling to find pricing',
+        'Clicked pricing tab',
+        'Waiting for content',
+        'Scrolling for more details',
+      ];
+
+      // Process each action and verify accumulation
+      for (let i = 0; i < testActions.length; i++) {
+        const action = testActions[i];
+        const context = contexts[i];
+
+        const result = await engine.processTraceUpdate(action, context, goal);
+
+        // Verify trace length increases
+        const status = engine.getMonitoringStatus();
+        expect(status.trace_length).toBe(i + 1);
+
+        // Verify current trace contains all actions up to this point
+        const enrichedTrace = engine.getEnrichedCurrentTrace();
+        expect(enrichedTrace.recent_actions).toBeDefined();
+        expect(enrichedTrace.recent_actions.length).toBe(i + 1);
+        expect(enrichedTrace.recent_actions[i]).toBe(action);
+
+        // If intervention is required, break
+        if (result.intervention_required) {
+          break;
+        }
+      }
+
+      // Final verification
+      const finalStatus = engine.getMonitoringStatus();
+      expect(finalStatus.trace_length).toBeGreaterThan(0);
+      expect(finalStatus.trace_length).toBeLessThanOrEqual(testActions.length);
+
+      engine.stopMonitoring();
     });
   });
 });

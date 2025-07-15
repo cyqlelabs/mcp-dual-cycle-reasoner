@@ -90,6 +90,10 @@ export class DualCycleEngine {
     this.accumulatedActions.push(lastAction);
     this.currentTrace.last_action = lastAction;
 
+    console.log(
+      `🔍 DEBUG: Added action "${lastAction}" to accumulated actions. Total: ${this.accumulatedActions.length}`
+    );
+
     // Update other trace properties if provided
     if (currentContext) {
       this.currentTrace.current_context = currentContext;
@@ -185,7 +189,17 @@ export class DualCycleEngine {
   private getEnrichedTrace(): CognitiveTrace & { recent_actions: string[] } {
     return {
       ...this.currentTrace,
-      recent_actions: this.accumulatedActions,
+      recent_actions: this.accumulatedActions || [],
+    };
+  }
+
+  /**
+   * Get enriched trace with accumulated actions (public method for standalone tools)
+   */
+  getEnrichedCurrentTrace(): CognitiveTrace & { recent_actions: string[] } {
+    return {
+      ...this.currentTrace,
+      recent_actions: this.accumulatedActions || [],
     };
   }
 

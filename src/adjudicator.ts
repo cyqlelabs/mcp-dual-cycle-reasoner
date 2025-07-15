@@ -184,7 +184,7 @@ export class Adjudicator {
     trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<string[]> {
     const evidence: string[] = [];
-    const recentActions = trace.recent_actions.slice(-5);
+    const recentActions = trace.recent_actions ? trace.recent_actions.slice(-5) : [];
 
     // Define expected outcomes for each hypothesis type
     const expectedOutcomes: Record<FailureHypothesis, string> = {

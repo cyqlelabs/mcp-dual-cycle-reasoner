@@ -1,7 +1,6 @@
 export const DESCRIPTIONS = {
   // Common field descriptions
   LAST_ACTION: 'Latest action name to be added to the accumulated action history',
-  RECENT_ACTIONS: 'List of recent action names',
   CURRENT_CONTEXT: 'Current environment context or state',
   GOAL: 'Current goal being pursued',
 

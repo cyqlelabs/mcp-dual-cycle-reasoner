@@ -66,7 +66,6 @@ class DualCycleReasonerServer {
     this.engine = new DualCycleEngine(this.config);
     this.setupToolHandlers();
     this.setupErrorHandling();
-    this.initializeSemanticAnalyzer();
   }
 
   private async initializeSemanticAnalyzer(): Promise<void> {
@@ -485,13 +484,21 @@ class DualCycleReasonerServer {
               detection_method = 'statistical',
             } = DetectLoopInputSchema.parse(args);
 
-            // Get current accumulated trace and update context/goal if provided
-            const currentTrace = this.engine.getCurrentTrace();
+            // Get current enriched trace (includes recent_actions) and update context/goal if provided
+            const enrichedTrace = this.engine.getEnrichedCurrentTrace();
             const trace = {
-              ...currentTrace,
+              ...enrichedTrace,
               ...(current_context && { current_context }),
               ...(goal && { goal }),
             };
+
+            // Debug logging
+            console.log('🔍 Debug - detect_loop trace:', {
+              recent_actions: trace.recent_actions,
+              recent_actions_length: trace.recent_actions?.length,
+              current_context: trace.current_context,
+              goal: trace.goal,
+            });
 
             // Direct access to sentinel for standalone loop detection
             const sentinel = (this.engine as any).sentinel;
@@ -536,10 +543,10 @@ class DualCycleReasonerServer {
               },
             };
 
-            // Get current trace and update context/goal if provided
-            const currentTrace = this.engine.getCurrentTrace();
+            // Get current enriched trace (includes recent_actions) and update context/goal if provided
+            const enrichedTrace = this.engine.getEnrichedCurrentTrace();
             const trace = {
-              ...currentTrace,
+              ...enrichedTrace,
               ...(current_context && { current_context }),
               ...(goal && { goal }),
             };
@@ -774,6 +781,9 @@ class DualCycleReasonerServer {
         'Based on the Dual-Cycle cognitive architecture with Sentinel and Adjudicator components'
       )
     );
+
+    // Initialize semantic analyzer before starting server
+    await this.initializeSemanticAnalyzer();
 
     await this.server.connect(transport);
     console.error(chalk.green('✅ Server ready for connections'));
