@@ -12,7 +12,7 @@
     "start": "node build/index.js",
     "dev": "tsc --watch",
     "test": "jest",
-    "test:live": "jest test/live-server.test.ts",
+    "test:live": "jest test/live-server.test.ts --testPathIgnorePatterns=[]",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src/**/*.ts"
   },
