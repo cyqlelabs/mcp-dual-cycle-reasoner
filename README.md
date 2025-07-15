@@ -108,10 +108,6 @@ The system implements five recovery patterns:
 4. **Information Foraging**: Explore page structure systematically
 5. **Human Escalation**: Request human intervention
 
-## Theoretical Foundation
-
-This implementation combines cognitive science, AI research, and advanced computational methods.
-
 ## Research Applications
 
 This framework enables research in:
