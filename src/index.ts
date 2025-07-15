@@ -119,10 +119,9 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                recent_actions: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: DESCRIPTIONS.RECENT_ACTIONS,
+                last_action: {
+                  type: 'string',
+                  description: DESCRIPTIONS.LAST_ACTION,
                 },
                 current_context: {
                   type: 'string',
@@ -138,7 +137,7 @@ class DualCycleReasonerServer {
                   default: 10,
                 },
               },
-              required: ['recent_actions', 'goal'],
+              required: ['last_action', 'goal'],
               additionalProperties: false,
             },
           },
@@ -148,11 +147,6 @@ class DualCycleReasonerServer {
             inputSchema: {
               type: 'object',
               properties: {
-                recent_actions: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: DESCRIPTIONS.RECENT_ACTIONS,
-                },
                 current_context: {
                   type: 'string',
                   description: `${DESCRIPTIONS.CURRENT_CONTEXT}, in low dash format. Example: sending_email`,
@@ -168,7 +162,7 @@ class DualCycleReasonerServer {
                   default: 'hybrid',
                 },
               },
-              required: ['recent_actions', 'goal'],
+              required: ['goal'],
               additionalProperties: false,
             },
           },
@@ -195,11 +189,6 @@ class DualCycleReasonerServer {
                 variance_score: { type: 'number', description: DESCRIPTIONS.VARIANCE_SCORE },
                 trend_score: { type: 'number', description: DESCRIPTIONS.TREND_SCORE },
                 cyclicity_score: { type: 'number', description: DESCRIPTIONS.CYCLICITY_SCORE },
-                recent_actions: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: DESCRIPTIONS.RECENT_ACTIONS,
-                },
                 current_context: {
                   type: 'string',
                   description: DESCRIPTIONS.CURRENT_CONTEXT,
@@ -209,13 +198,7 @@ class DualCycleReasonerServer {
                   description: DESCRIPTIONS.GOAL,
                 },
               },
-              required: [
-                'loop_detected',
-                'loop_confidence',
-                'loop_details',
-                'recent_actions',
-                'goal',
-              ],
+              required: ['loop_detected', 'loop_confidence', 'loop_details', 'goal'],
               additionalProperties: false,
             },
           },
@@ -234,17 +217,12 @@ class DualCycleReasonerServer {
                   type: 'string',
                   description: DESCRIPTIONS.CONTRADICTING_EVIDENCE,
                 },
-                recent_actions: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: DESCRIPTIONS.RECENT_ACTIONS,
-                },
                 goal: {
                   type: 'string',
                   description: DESCRIPTIONS.GOAL,
                 },
               },
-              required: ['current_beliefs', 'contradicting_evidence', 'recent_actions', 'goal'],
+              required: ['current_beliefs', 'contradicting_evidence', 'goal'],
               additionalProperties: false,
             },
           },
@@ -287,10 +265,9 @@ class DualCycleReasonerServer {
                   description: DESCRIPTIONS.CONFIDENCE_FACTORS,
                 },
                 evidence_quality: { type: 'number', description: DESCRIPTIONS.EVIDENCE_QUALITY },
-                recent_actions: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: DESCRIPTIONS.RECENT_ACTIONS,
+                last_action: {
+                  type: 'string',
+                  description: DESCRIPTIONS.LAST_ACTION,
                 },
                 current_context: {
                   type: 'string',
@@ -320,7 +297,7 @@ class DualCycleReasonerServer {
                 'diagnosis_confidence',
                 'evidence',
                 'suggested_actions',
-                'recent_actions',
+                'last_action',
                 'goal',
               ],
               additionalProperties: false,
@@ -484,13 +461,12 @@ class DualCycleReasonerServer {
 
           case 'process_trace_update': {
             const {
-              recent_actions,
+              last_action,
               current_context,
               goal,
               window_size = 10,
             } = MonitorCognitiveTraceInputSchema.parse(args);
-            const trace = { recent_actions, current_context, goal };
-            const result = await this.engine.processTraceUpdate(trace);
+            const result = await this.engine.processTraceUpdate(last_action, current_context, goal);
 
             return {
               content: [
@@ -504,12 +480,19 @@ class DualCycleReasonerServer {
 
           case 'detect_loop': {
             const {
-              recent_actions,
               current_context,
               goal,
               detection_method = 'statistical',
             } = DetectLoopInputSchema.parse(args);
-            const trace = { recent_actions, current_context, goal };
+
+            // Get current accumulated trace and update context/goal if provided
+            const currentTrace = this.engine.getCurrentTrace();
+            const trace = {
+              ...currentTrace,
+              ...(current_context && { current_context }),
+              ...(goal && { goal }),
+            };
+
             // Direct access to sentinel for standalone loop detection
             const sentinel = (this.engine as any).sentinel;
             const result = sentinel.detectLoop(trace, detection_method);
@@ -535,7 +518,6 @@ class DualCycleReasonerServer {
               variance_score,
               trend_score,
               cyclicity_score,
-              recent_actions,
               current_context,
               goal,
             } = DiagnoseFailureInputSchema.parse(args);
@@ -554,7 +536,14 @@ class DualCycleReasonerServer {
               },
             };
 
-            const trace = { recent_actions, current_context, goal };
+            // Get current trace and update context/goal if provided
+            const currentTrace = this.engine.getCurrentTrace();
+            const trace = {
+              ...currentTrace,
+              ...(current_context && { current_context }),
+              ...(goal && { goal }),
+            };
+
             const adjudicator = (this.engine as any).adjudicator;
             const result = await adjudicator.diagnoseFailure(loop_result, trace);
 
@@ -569,9 +558,16 @@ class DualCycleReasonerServer {
           }
 
           case 'revise_beliefs': {
-            const { current_beliefs, contradicting_evidence, recent_actions, goal } =
+            const { current_beliefs, contradicting_evidence, goal } =
               ReviseBelifsInputSchema.parse(args);
-            const trace = { recent_actions, goal };
+
+            // Get current trace and update goal if provided
+            const currentTrace = this.engine.getCurrentTrace();
+            const trace = {
+              ...currentTrace,
+              ...(goal && { goal }),
+            };
+
             const adjudicator = (this.engine as any).adjudicator;
             const result = await adjudicator.reviseBeliefs(
               current_beliefs,
@@ -598,7 +594,6 @@ class DualCycleReasonerServer {
               sentiment_score,
               confidence_factors,
               evidence_quality,
-              recent_actions,
               current_context,
               goal,
               available_patterns,
@@ -616,7 +611,14 @@ class DualCycleReasonerServer {
               },
             };
 
-            const trace = { recent_actions, current_context, goal };
+            // Get current trace and update context/goal if provided
+            const currentTrace = this.engine.getCurrentTrace();
+            const trace = {
+              ...currentTrace,
+              ...(current_context && { current_context }),
+              ...(goal && { goal }),
+            };
+
             const adjudicator = (this.engine as any).adjudicator;
             const result = adjudicator.generateRecoveryPlan(diagnosis, trace, available_patterns);
 

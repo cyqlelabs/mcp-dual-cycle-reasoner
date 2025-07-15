@@ -40,7 +40,7 @@ export const EnvironmentStateSchema = z.object({
 });
 
 export const CognitiveTraceSchema = z.object({
-  recent_actions: z.array(z.string()).describe(DESCRIPTIONS.RECENT_ACTIONS),
+  last_action: z.string().describe(DESCRIPTIONS.LAST_ACTION),
   current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
 });
@@ -146,14 +146,13 @@ export const BeliefRevisionResultSchema = z.object({
 
 // MCP Tool Input/Output Types - Flattened for single-level parameters
 export const MonitorCognitiveTraceInputSchema = z.object({
-  recent_actions: z.array(z.string()).describe(DESCRIPTIONS.RECENT_ACTIONS),
+  last_action: z.string().describe(DESCRIPTIONS.LAST_ACTION),
   current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
   window_size: z.number().default(10),
 });
 
 export const DetectLoopInputSchema = z.object({
-  recent_actions: z.array(z.string()).describe(DESCRIPTIONS.RECENT_ACTIONS),
   current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
   detection_method: z.enum(['statistical', 'pattern', 'hybrid']).default('hybrid'),
@@ -169,7 +168,6 @@ export const DiagnoseFailureInputSchema = z.object({
   variance_score: z.number().optional().describe(DESCRIPTIONS.VARIANCE_SCORE),
   trend_score: z.number().optional().describe(DESCRIPTIONS.TREND_SCORE),
   cyclicity_score: z.number().optional().describe(DESCRIPTIONS.CYCLICITY_SCORE),
-  recent_actions: z.array(z.string()).describe(DESCRIPTIONS.RECENT_ACTIONS),
   current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
 });
@@ -177,7 +175,6 @@ export const DiagnoseFailureInputSchema = z.object({
 export const ReviseBelifsInputSchema = z.object({
   current_beliefs: z.array(z.string()).describe(DESCRIPTIONS.CURRENT_BELIEFS),
   contradicting_evidence: z.string().describe(DESCRIPTIONS.CONTRADICTING_EVIDENCE),
-  recent_actions: z.array(z.string()).describe(DESCRIPTIONS.RECENT_ACTIONS),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
 });
 
@@ -189,7 +186,6 @@ export const GenerateRecoveryPlanInputSchema = z.object({
   sentiment_score: z.number().optional().describe(DESCRIPTIONS.SENTIMENT_SCORE),
   confidence_factors: z.array(z.string()).optional().describe(DESCRIPTIONS.CONFIDENCE_FACTORS),
   evidence_quality: z.number().optional().describe(DESCRIPTIONS.EVIDENCE_QUALITY),
-  recent_actions: z.array(z.string()).describe(DESCRIPTIONS.RECENT_ACTIONS),
   current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
   available_patterns: z

@@ -67,7 +67,10 @@ export class Sentinel {
    * Strategy 1: Domain-Agnostic Action Pattern Analysis
    * Detects loops using semantic action similarity and behavioral patterns
    */
-  detectActionAnomalies(trace: CognitiveTrace, windowSize: number = 10): LoopDetectionResult {
+  detectActionAnomalies(
+    trace: CognitiveTrace & { recent_actions: string[] },
+    windowSize: number = 10
+  ): LoopDetectionResult {
     if (!trace.recent_actions || trace.recent_actions.length === 0) {
       return { detected: false, confidence: 0, details: 'No action history available' };
     }
@@ -187,7 +190,10 @@ export class Sentinel {
    * Strategy 2: Domain-Agnostic State Invariance Tracking
    * Detects when the agent returns to functionally equivalent states
    */
-  detectStateInvariance(trace: CognitiveTrace, threshold: number = 2): LoopDetectionResult {
+  detectStateInvariance(
+    trace: CognitiveTrace & { recent_actions: string[] },
+    threshold: number = 2
+  ): LoopDetectionResult {
     if (!trace.current_context) {
       return { detected: false, confidence: 0, details: 'No state context available' };
     }
@@ -256,7 +262,10 @@ export class Sentinel {
    * Strategy 3: Enhanced Progress Heuristic Evaluation
    * Uses advanced time series analysis for stagnation detection
    */
-  detectProgressStagnation(trace: CognitiveTrace, windowSize: number = 6): LoopDetectionResult {
+  detectProgressStagnation(
+    trace: CognitiveTrace & { recent_actions: string[] },
+    windowSize: number = 6
+  ): LoopDetectionResult {
     if (!trace.recent_actions.length || trace.recent_actions.length < 3) {
       return { detected: false, confidence: 0, details: 'Insufficient step history' };
     }
@@ -316,7 +325,7 @@ export class Sentinel {
    * Hybrid loop detection combining all three strategies
    */
   detectLoop(
-    trace: CognitiveTrace,
+    trace: CognitiveTrace & { recent_actions: string[] },
     method: 'statistical' | 'pattern' | 'hybrid' = 'hybrid'
   ): LoopDetectionResult {
     switch (method) {
@@ -408,7 +417,7 @@ export class Sentinel {
   /**
    * Advanced time series analysis for detecting complex temporal patterns
    */
-  private analyzeActionTimeSeries(trace: CognitiveTrace): {
+  private analyzeActionTimeSeries(trace: CognitiveTrace & { recent_actions: string[] }): {
     trendScore: number;
     cyclicityScore: number;
     stagnationScore: number;
@@ -419,17 +428,17 @@ export class Sentinel {
     }
 
     // Convert actions to numerical sequence for analysis
-    const actionSequence = actions.map((a) => this.hashAction(a));
+    const actionSequence = actions.map((a: string) => this.hashAction(a));
 
     // Calculate trend using linear regression
-    const xValues = actionSequence.map((_, i) => i);
+    const xValues = actionSequence.map((_: number, i: number) => i);
     const yValues = actionSequence;
 
     const n = actionSequence.length;
-    const sumX = xValues.reduce((sum, x) => sum + x, 0);
-    const sumY = yValues.reduce((sum, y) => sum + y, 0);
-    const sumXY = xValues.reduce((sum, x, i) => sum + x * yValues[i], 0);
-    const sumXX = xValues.reduce((sum, x) => sum + x * x, 0);
+    const sumX = xValues.reduce((sum: number, x: number) => sum + x, 0);
+    const sumY = yValues.reduce((sum: number, y: number) => sum + y, 0);
+    const sumXY = xValues.reduce((sum: number, x: number, i: number) => sum + x * yValues[i], 0);
+    const sumXX = xValues.reduce((sum: number, x: number) => sum + x * x, 0);
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
     const trendScore = Math.abs(slope) < 0.1 ? 0.8 : 0.2; // Low slope = stagnation

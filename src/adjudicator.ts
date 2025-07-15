@@ -25,7 +25,7 @@ export class Adjudicator {
   async reviseBeliefs(
     currentBeliefs: string[],
     contradictingEvidence: string,
-    _trace: CognitiveTrace
+    _trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<BeliefRevisionResult> {
     const revisedBeliefs: string[] = [];
     const removedBeliefs: string[] = [];
@@ -67,7 +67,7 @@ export class Adjudicator {
    */
   async diagnoseFailure(
     loopResult: LoopDetectionResult,
-    trace: CognitiveTrace
+    trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<DiagnosisResult> {
     const hypotheses = this.generateFailureHypotheses(loopResult, trace);
     const evaluatedHypotheses = await Promise.all(
@@ -98,7 +98,7 @@ export class Adjudicator {
    */
   generateRecoveryPlan(
     diagnosis: DiagnosisResult,
-    trace: CognitiveTrace,
+    trace: CognitiveTrace & { recent_actions: string[] },
     availablePatterns?: RecoveryPattern[]
   ): RecoveryPlan {
     // First, try to retrieve similar cases
@@ -157,7 +157,7 @@ export class Adjudicator {
 
   private generateFailureHypotheses(
     loopResult: LoopDetectionResult,
-    _trace: CognitiveTrace
+    _trace: CognitiveTrace & { recent_actions: string[] }
   ): FailureHypothesis[] {
     const hypotheses: FailureHypothesis[] = [];
 
@@ -181,7 +181,7 @@ export class Adjudicator {
 
   private async gatherEvidence(
     hypothesis: FailureHypothesis,
-    trace: CognitiveTrace
+    trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<string[]> {
     const evidence: string[] = [];
     const recentActions = trace.recent_actions.slice(-5);
@@ -239,7 +239,7 @@ export class Adjudicator {
 
   private async calculateHypothesisConfidence(
     hypothesis: FailureHypothesis,
-    trace: CognitiveTrace
+    trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<number> {
     const evidence = await this.gatherEvidence(hypothesis, trace);
     const baseConfidence = 0.4;
@@ -250,7 +250,7 @@ export class Adjudicator {
 
   private generateDiagnosticActions(
     hypothesis: FailureHypothesis,
-    _trace: CognitiveTrace
+    _trace: CognitiveTrace & { recent_actions: string[] }
   ): string[] {
     switch (hypothesis) {
       case 'element_state_error':
@@ -309,7 +309,7 @@ export class Adjudicator {
     }
   }
 
-  private extractContext(trace: CognitiveTrace): string {
+  private extractContext(trace: CognitiveTrace & { recent_actions: string[] }): string {
     const recentActions = trace.recent_actions.slice(-3).join(' -> ');
     const currentContext = trace.current_context || 'unknown';
     return `Actions: ${recentActions}, Context: ${currentContext}, Goal: ${trace.goal}`;
@@ -317,7 +317,7 @@ export class Adjudicator {
 
   private generateNovelRecoveryPlan(
     diagnosis: DiagnosisResult,
-    trace: CognitiveTrace,
+    trace: CognitiveTrace & { recent_actions: string[] },
     availablePatterns?: RecoveryPattern[]
   ): RecoveryPlan {
     const patterns = availablePatterns || [
@@ -364,7 +364,7 @@ export class Adjudicator {
   private generateActionsForPattern(
     pattern: RecoveryPattern,
     _diagnosis: DiagnosisResult,
-    _trace: CognitiveTrace
+    _trace: CognitiveTrace & { recent_actions: string[] }
   ): string[] {
     switch (pattern) {
       case 'strategic_retreat':

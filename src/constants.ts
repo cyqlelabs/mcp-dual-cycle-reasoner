@@ -1,5 +1,6 @@
 export const DESCRIPTIONS = {
   // Common field descriptions
+  LAST_ACTION: 'Latest action name to be added to the accumulated action history',
   RECENT_ACTIONS: 'List of recent action names',
   CURRENT_CONTEXT: 'Current environment context or state',
   GOAL: 'Current goal being pursued',
@@ -62,7 +63,7 @@ export const DESCRIPTIONS = {
 
   // Threshold descriptions
   ENTROPY_THRESHOLD: 'Threshold for entropy-based anomaly detection',
-  VARIANCE_THRESHOLD: 'Threshold for variance-based stagnation detection',
+  VARIANCE_THRESHOLD: 'Threshold for variance-based stagnation detectio cfn',
   TREND_THRESHOLD: 'Threshold for trend-based progress detection',
   CYCLICITY_THRESHOLD: 'Threshold for detecting cyclical patterns',
 
@@ -71,4 +72,3 @@ export const DESCRIPTIONS = {
   ACTION_RESULT: 'Result or error from the action',
   ENVIRONMENT_CONTEXT: 'Current environment context or location',
 } as const;
-

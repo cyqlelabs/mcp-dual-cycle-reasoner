@@ -147,14 +147,25 @@ describe('Live MCP Server Integration', () => {
         },
       });
 
-      // Process the trace (should detect loop)
-      const processResult = await mcpClient.callTool({
-        name: 'process_trace_update',
-        arguments: {
-          trace: trace,
-          window_size: 10,
-        },
-      });
+      // Process the trace actions one by one (should detect loop)
+      let processResult;
+      for (const action of trace.recent_actions) {
+        processResult = await mcpClient.callTool({
+          name: 'process_trace_update',
+          arguments: {
+            last_action: action,
+            current_context: trace.current_context,
+            goal: trace.goal,
+            window_size: 10,
+          },
+        });
+        
+        // Break if intervention is required
+        const result = JSON.parse((processResult as any).content[0].text);
+        if (result.intervention_required) {
+          break;
+        }
+      }
 
       const result = JSON.parse((processResult as any).content[0].text);
       expect(result.intervention_required).toBe(true);
@@ -180,11 +191,33 @@ describe('Live MCP Server Integration', () => {
     it('should use standalone loop detection tool', async () => {
       const trace = loopFixture.cognitive_trace;
 
-      // Direct loop detection
+      // First populate the internal trace by processing actions
+      await mcpClient.callTool({
+        name: 'start_monitoring',
+        arguments: {
+          goal: trace.goal,
+          initial_beliefs: ['Download button should be visible'],
+        },
+      });
+
+      // Add actions to internal trace
+      for (const action of trace.recent_actions) {
+        await mcpClient.callTool({
+          name: 'process_trace_update',
+          arguments: {
+            last_action: action,
+            current_context: trace.current_context,
+            goal: trace.goal,
+          },
+        });
+      }
+
+      // Direct loop detection (uses internal accumulated trace)
       const detectResult = await mcpClient.callTool({
         name: 'detect_loop',
         arguments: {
-          trace: trace,
+          current_context: trace.current_context,
+          goal: trace.goal,
           detection_method: 'hybrid',
         },
       });
@@ -200,7 +233,8 @@ describe('Live MCP Server Integration', () => {
         name: 'diagnose_failure',
         arguments: {
           loop_result: loopResult,
-          trace: trace,
+          current_context: trace.current_context,
+          goal: trace.goal,
         },
       });
 
@@ -214,7 +248,8 @@ describe('Live MCP Server Integration', () => {
         name: 'generate_recovery_plan',
         arguments: {
           diagnosis: diagnosis,
-          trace: trace,
+          current_context: trace.current_context,
+          goal: trace.goal,
         },
       });
 
@@ -240,7 +275,7 @@ describe('Live MCP Server Integration', () => {
           ],
           contradicting_evidence:
             'Had to navigate to pricing page and open modal to see comparison',
-          trace: trace,
+          goal: trace.goal,
         },
       });
 
@@ -275,10 +310,32 @@ describe('Live MCP Server Integration', () => {
       const trace = scrollFixture.cognitive_trace;
 
       // Test statistical detection
+      // First populate the internal trace by processing actions
+      await mcpClient.callTool({
+        name: 'start_monitoring',
+        arguments: {
+          goal: trace.goal,
+          initial_beliefs: [],
+        },
+      });
+
+      // Add actions to internal trace
+      for (const action of trace.recent_actions) {
+        await mcpClient.callTool({
+          name: 'process_trace_update',
+          arguments: {
+            last_action: action,
+            current_context: trace.current_context,
+            goal: trace.goal,
+          },
+        });
+      }
+
       const statisticalResult = await mcpClient.callTool({
         name: 'detect_loop',
         arguments: {
-          trace: trace,
+          current_context: trace.current_context,
+          goal: trace.goal,
           detection_method: 'statistical',
         },
       });
@@ -290,7 +347,8 @@ describe('Live MCP Server Integration', () => {
       const patternResult = await mcpClient.callTool({
         name: 'detect_loop',
         arguments: {
-          trace: trace,
+          current_context: trace.current_context,
+          goal: trace.goal,
           detection_method: 'pattern',
         },
       });

@@ -24,6 +24,7 @@ export class DualCycleEngine {
   private currentTrace: CognitiveTrace;
   private isMonitoring: boolean = false;
   private interventionCount: number = 0;
+  private accumulatedActions: string[] = [];
 
   constructor(config?: Partial<SentinelConfig>) {
     this.sentinel = new Sentinel(config);
@@ -36,7 +37,7 @@ export class DualCycleEngine {
    */
   private initializeTrace(): CognitiveTrace {
     return {
-      recent_actions: [],
+      last_action: '',
       current_context: undefined,
       goal: '',
     };
@@ -50,6 +51,7 @@ export class DualCycleEngine {
     this.currentTrace = this.initializeTrace();
     this.currentTrace.goal = initialGoal;
     this.interventionCount = 0;
+    this.accumulatedActions = [];
 
     console.log(chalk.blue('🧠 Dual-Cycle Engine: Metacognitive monitoring started'));
     console.log(chalk.gray(`Goal: ${initialGoal}`));
@@ -66,9 +68,13 @@ export class DualCycleEngine {
   }
 
   /**
-   * Process a new cognitive trace update (called by the cognitive cycle)
+   * Process a new cognitive trace update with a single action (called by the cognitive cycle)
    */
-  async processTraceUpdate(trace: CognitiveTrace): Promise<{
+  async processTraceUpdate(
+    lastAction: string,
+    currentContext?: string,
+    goal?: string
+  ): Promise<{
     intervention_required: boolean;
     loop_detected?: LoopDetectionResult;
     diagnosis?: DiagnosisResult;
@@ -80,13 +86,26 @@ export class DualCycleEngine {
       return { intervention_required: false };
     }
 
-    // Update current trace
-    this.currentTrace = { ...this.currentTrace, ...trace };
+    // Add the new action to the accumulated actions
+    this.accumulatedActions.push(lastAction);
+    this.currentTrace.last_action = lastAction;
 
-    console.log(chalk.gray(`\n📊 Processing trace update: ${trace.recent_actions.length} actions`));
+    // Update other trace properties if provided
+    if (currentContext) {
+      this.currentTrace.current_context = currentContext;
+    }
+    if (goal) {
+      this.currentTrace.goal = goal;
+    }
+
+    console.log(
+      chalk.gray(
+        `\n📊 Processing trace update: Added "${lastAction}" (${this.accumulatedActions.length} total actions)`
+      )
+    );
 
     // METACOGNITIVE CYCLE - Phase 1: MONITOR
-    const loopDetection = this.monitorForLoops(trace);
+    const loopDetection = this.monitorForLoops(this.currentTrace);
 
     if (!loopDetection.detected) {
       console.log(chalk.green('✅ No loops detected - cognitive cycle proceeding normally'));
@@ -104,7 +123,7 @@ export class DualCycleEngine {
     console.log(chalk.yellow(`   Details: ${loopDetection.details}`));
 
     // METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
-    const diagnosis = await this.interpretFailure(loopDetection, trace);
+    const diagnosis = await this.interpretFailure(loopDetection, this.getEnrichedTrace());
     console.log(
       chalk.red(
         `🔍 Diagnosis: ${diagnosis.primary_hypothesis} (confidence: ${(diagnosis.confidence * 100).toFixed(1)}%)`
@@ -113,12 +132,16 @@ export class DualCycleEngine {
     console.log(chalk.red(`   Evidence: ${diagnosis.evidence.join('; ')}`));
 
     // METACOGNITIVE CYCLE - Phase 3: PLAN (Meta-Level)
-    const recoveryPlan = this.planRecovery(diagnosis, trace);
+    const recoveryPlan = this.planRecovery(diagnosis, this.getEnrichedTrace());
     console.log(chalk.blue(`🛠️  Recovery plan: ${recoveryPlan.pattern}`));
     console.log(chalk.blue(`   Rationale: ${recoveryPlan.rationale}`));
 
     // METACOGNITIVE CYCLE - Phase 4: CONTROL (Meta-Level)
-    const beliefRevision = await this.controlCognition(loopDetection, diagnosis, trace);
+    const beliefRevision = await this.controlCognition(
+      loopDetection,
+      diagnosis,
+      this.getEnrichedTrace()
+    );
     console.log(
       chalk.magenta(
         `🧠 Beliefs revised: ${beliefRevision.revised_beliefs.length} beliefs, ${beliefRevision.removed_beliefs.length} removed`
@@ -126,7 +149,7 @@ export class DualCycleEngine {
     );
 
     // Store this experience for future learning
-    this.storeExperience(loopDetection, diagnosis, recoveryPlan, trace);
+    this.storeExperience(loopDetection, diagnosis, recoveryPlan, this.currentTrace);
 
     this.interventionCount++;
 
@@ -150,11 +173,29 @@ export class DualCycleEngine {
   }
 
   /**
+   * Get current trace for standalone loop detection
+   */
+  getCurrentTrace(): CognitiveTrace {
+    return this.currentTrace;
+  }
+
+  /**
+   * Get enriched trace with accumulated actions for internal use
+   */
+  private getEnrichedTrace(): CognitiveTrace & { recent_actions: string[] } {
+    return {
+      ...this.currentTrace,
+      recent_actions: this.accumulatedActions,
+    };
+  }
+
+  /**
    * METACOGNITIVE CYCLE - Phase 1: MONITOR
    * Uses the Sentinel to detect problematic patterns
    */
   private monitorForLoops(trace: CognitiveTrace): LoopDetectionResult {
-    return this.sentinel.detectLoop(trace, 'hybrid');
+    const enrichedTrace = this.getEnrichedTrace();
+    return this.sentinel.detectLoop(enrichedTrace, 'hybrid');
   }
 
   /**
@@ -163,7 +204,7 @@ export class DualCycleEngine {
    */
   private async interpretFailure(
     loopResult: LoopDetectionResult,
-    trace: CognitiveTrace
+    trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<DiagnosisResult> {
     return await this.adjudicator.diagnoseFailure(loopResult, trace);
   }
@@ -172,7 +213,10 @@ export class DualCycleEngine {
    * METACOGNITIVE CYCLE - Phase 3: PLAN (Meta-Level)
    * Uses the Adjudicator to generate a recovery plan
    */
-  private planRecovery(diagnosis: DiagnosisResult, trace: CognitiveTrace): RecoveryPlan {
+  private planRecovery(
+    diagnosis: DiagnosisResult,
+    trace: CognitiveTrace & { recent_actions: string[] }
+  ): RecoveryPlan {
     return this.adjudicator.generateRecoveryPlan(diagnosis, trace);
   }
 
@@ -183,7 +227,7 @@ export class DualCycleEngine {
   private async controlCognition(
     loopResult: LoopDetectionResult,
     diagnosis: DiagnosisResult,
-    trace: CognitiveTrace
+    trace: CognitiveTrace & { recent_actions: string[] }
   ): Promise<BeliefRevisionResult> {
     const contradictingEvidence = `Loop detected: ${loopResult.type}. Diagnosis: ${diagnosis.primary_hypothesis}. Current strategy is ineffective.`;
 
@@ -238,7 +282,7 @@ export class DualCycleEngine {
    * Extract a summary of the current context for case storage
    */
   private extractContextSummary(trace: CognitiveTrace): string {
-    const recentActions = trace.recent_actions.slice(-3).join(' -> ');
+    const recentActions = this.accumulatedActions.slice(-3).join(' -> ');
     const currentContext = trace.current_context || 'unknown';
 
     return (
@@ -261,7 +305,7 @@ export class DualCycleEngine {
       is_monitoring: this.isMonitoring,
       intervention_count: this.interventionCount,
       current_goal: this.currentTrace.goal,
-      trace_length: this.currentTrace.recent_actions.length,
+      trace_length: this.accumulatedActions.length,
     };
   }
 
@@ -286,6 +330,7 @@ export class DualCycleEngine {
     this.currentTrace = this.initializeTrace();
     this.isMonitoring = false;
     this.interventionCount = 0;
+    this.accumulatedActions = [];
     console.log(chalk.blue('🔄 Dual-Cycle Engine reset'));
   }
 
