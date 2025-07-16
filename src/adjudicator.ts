@@ -1,12 +1,4 @@
-import {
-  CognitiveTrace,
-  LoopDetectionResult,
-  DiagnosisResult,
-  FailureHypothesis,
-  RecoveryPlan,
-  RecoveryPattern,
-  Case,
-} from './types.js';
+import { Case } from './types.js';
 import natural from 'natural';
 import nlp from 'compromise';
 import { semanticAnalyzer } from './semantic-analyzer.js';
@@ -16,350 +8,209 @@ const { SentimentAnalyzer, PorterStemmer, WordTokenizer } = natural;
 
 export class Adjudicator {
   private caseBase: Case[] = [];
+  private caseIndex: Map<string, Case[]> = new Map(); // Index for faster retrieval
+  private semanticIntents: string[] = [
+    'performing action',
+    'checking status',
+    'retrieving information',
+    'processing data',
+    'handling error',
+    'completing task',
+    'initiating process',
+    'validating result',
+    'organizing information',
+    'communicating result',
+  ];
 
   /**
-   * Strategy 5: Abductive Reasoning for Failure Diagnosis
-   * Generates and evaluates hypotheses to explain observed failures
+   * Update semantic intents for domain-specific analysis
    */
-  async diagnoseFailure(
-    loopResult: LoopDetectionResult,
-    trace: CognitiveTrace & { recent_actions: string[] }
-  ): Promise<DiagnosisResult> {
-    const hypotheses = this.generateFailureHypotheses(loopResult, trace);
-    const evaluatedHypotheses = await Promise.all(
-      hypotheses.map(async (hypothesis) => ({
-        hypothesis,
-        evidence: await this.gatherEvidence(hypothesis, trace),
-        confidence: await this.calculateHypothesisConfidence(hypothesis, trace),
-      }))
-    );
-
-    // Sort by confidence
-    evaluatedHypotheses.sort((a, b) => b.confidence - a.confidence);
-    const bestHypothesis = evaluatedHypotheses[0];
-
-    const suggestedActions = this.generateDiagnosticActions(bestHypothesis.hypothesis, trace);
-
-    return {
-      primary_hypothesis: bestHypothesis.hypothesis,
-      confidence: bestHypothesis.confidence,
-      evidence: bestHypothesis.evidence,
-      suggested_actions: suggestedActions,
-    };
-  }
-
-  /**
-   * Strategy 6: Case-Based Reasoning for Recovery
-   * Retrieves and adapts solutions from similar past problems
-   */
-  generateRecoveryPlan(
-    diagnosis: DiagnosisResult,
-    trace: CognitiveTrace & { recent_actions: string[] },
-    availablePatterns?: RecoveryPattern[]
-  ): RecoveryPlan {
-    // First, try to retrieve similar cases
-    const similarCases = this.retrieveSimilarCases(
-      `${this.mapDiagnosisToLoopType(diagnosis)}: ${diagnosis.primary_hypothesis} in ${this.extractContext(trace)}`
-    );
-
-    if (similarCases.length > 0 && similarCases[0].outcome) {
-      // Create a plan based on the successful case
-      return {
-        pattern: 'strategic_retreat' as RecoveryPattern,
-        actions: [similarCases[0].solution],
-        rationale: `Adapted from similar successful case`,
-        expected_outcome: 'Recovery based on proven solution',
-      };
-    }
-
-    // If no successful cases found, generate new plan
-    return this.generateNovelRecoveryPlan(diagnosis, trace, availablePatterns);
-  }
-
-  /**
-   * Store experience for future case-based reasoning
-   */
-  storeExperience(case_: Case): void {
-    this.caseBase.push(case_);
-
-    // Limit case base size to prevent memory issues
-    if (this.caseBase.length > 1000) {
-      // Remove oldest cases with low success rate
-      this.caseBase = this.caseBase
-        .sort((a, b) => {
-          if (a.outcome !== b.outcome) {
-            return b.outcome ? 1 : -1;
-          }
-          return (b.timestamp || 0) - (a.timestamp || 0);
-        })
-        .slice(0, 800);
+  updateSemanticIntents(intents: string[]): void {
+    if (intents.length > 0) {
+      this.semanticIntents = intents;
     }
   }
 
   /**
-   * Retrieve similar cases for CBR
+   * Enhanced store experience with quality management and indexing
    */
-  retrieveSimilarCases(problemDescription: string, maxResults: number = 5): Case[] {
-    const scoredCases = this.caseBase.map((case_) => ({
-      case: case_,
-      similarity: this.calculateCaseSimilarity(problemDescription, case_.problem_description),
-    }));
-
-    return scoredCases
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, maxResults)
-      .map((item) => item.case);
-  }
-
-  private generateFailureHypotheses(
-    loopResult: LoopDetectionResult,
-    _trace: CognitiveTrace & { recent_actions: string[] }
-  ): FailureHypothesis[] {
-    const hypotheses: FailureHypothesis[] = [];
-
-    if (loopResult.type === 'action_repetition') {
-      hypotheses.push('element_state_error', 'selector_error');
-    }
-
-    if (loopResult.type === 'state_invariance') {
-      hypotheses.push('page_state_error', 'network_error');
-    }
-
-    if (loopResult.type === 'progress_stagnation') {
-      hypotheses.push('task_model_error', 'element_state_error');
-    }
-
-    // Always consider these as backup hypotheses
-    hypotheses.push('unknown');
-
-    return [...new Set(hypotheses)]; // Remove duplicates
-  }
-
-  private async gatherEvidence(
-    hypothesis: FailureHypothesis,
-    trace: CognitiveTrace & { recent_actions: string[] }
-  ): Promise<string[]> {
-    const evidence: string[] = [];
-    const recentActions = trace.recent_actions ? trace.recent_actions.slice(-5) : [];
-
-    // Define expected outcomes for each hypothesis type
-    const expectedOutcomes: Record<FailureHypothesis, string> = {
-      element_state_error: 'Elements can be found and interacted with successfully',
-      page_state_error: 'Page state changes appropriately after actions',
-      selector_error: 'Selectors work correctly without errors',
-      task_model_error: 'Task progresses efficiently toward completion',
-      network_error: 'Network operations complete without timeout or connection issues',
-      unknown: 'Actions execute successfully without errors',
-    };
-
-    const expectedOutcome = expectedOutcomes[hypothesis];
-
-    // Use semantic analysis to assess each recent action
-    for (const action of recentActions) {
-      try {
-        const assessment = await semanticAnalyzer.assessActionOutcome(action, expectedOutcome);
-
-        if (assessment.category === 'failure' && assessment.confidence > 0.7) {
-          evidence.push(`Action "${action}" contradicts expected outcome: ${assessment.reasoning}`);
-        } else if (assessment.category === 'neutral' && assessment.confidence > 0.8) {
-          evidence.push(`Action "${action}" shows unclear outcome: ${assessment.reasoning}`);
-        }
-      } catch (error) {
-        console.error('Error assessing action outcome:', error);
+  async storeExperience(case_: Case): Promise<void> {
+    // Extract semantic features for better retrieval
+    try {
+      // Check if semantic analyzer is available
+      if (!semanticAnalyzer.isReady()) {
+        throw new Error('SemanticAnalyzer is not ready');
       }
-    }
 
-    // Additional hypothesis-specific semantic checks
-    switch (hypothesis) {
-      case 'page_state_error':
-        if (trace.recent_actions.length > 1) {
-          const recentContext = trace.current_context || '';
-          if (recentContext === '') {
-            evidence.push('Page state has not changed despite actions');
-          }
+      const problemFeatures = await semanticAnalyzer.extractSemanticFeatures(
+        case_.problem_description,
+        this.semanticIntents
+      );
+      const solutionFeatures = await semanticAnalyzer.extractSemanticFeatures(
+        case_.solution,
+        this.semanticIntents
+      );
+
+      // Combine features from both problem and solution
+      const combinedFeatures = {
+        intents: [...(problemFeatures.intents || []), ...(solutionFeatures.intents || [])],
+        sentiment: case_.outcome ? 'positive' : 'negative',
+        keywords: this.extractKeywords(case_.problem_description + ' ' + case_.solution),
+      };
+
+      // Calculate initial confidence score based on various factors
+      const confidenceScore = this.calculateCaseConfidence(
+        case_,
+        problemFeatures,
+        solutionFeatures
+      );
+
+      // Enhance the case with computed features
+      const enhancedCase: Case = {
+        ...case_,
+        semantic_features: combinedFeatures as any,
+        confidence_score: confidenceScore,
+        validation_score: this.validateCase(case_),
+        usage_count: 0,
+        success_rate: case_.outcome ? 1.0 : 0.0,
+      };
+
+      // Check for duplicates and quality
+      if (this.isDuplicateCase(enhancedCase)) {
+        this.updateExistingCase(enhancedCase);
+        return;
+      }
+
+      if (confidenceScore < 0.3) {
+        console.warn('Case rejected due to low confidence score:', confidenceScore);
+        return;
+      }
+
+      // Store the case
+      this.caseBase.push(enhancedCase);
+      this.updateIndex(enhancedCase);
+
+      // Manage case base size with intelligent pruning
+      if (this.caseBase.length > 1000) {
+        this.pruneeCaseBase();
+      }
+    } catch (error) {
+      console.error('Error storing experience:', error);
+      // Fallback to simple storage
+      this.caseBase.push(case_);
+    }
+  }
+
+  /**
+   * Enhanced retrieve similar cases with filtering and semantic matching
+   */
+  async retrieveSimilarCases(
+    problemDescription: string,
+    maxResults: number = 5,
+    filters: {
+      context_filter?: string;
+      goal_type_filter?: string;
+      difficulty_filter?: 'low' | 'medium' | 'high';
+      outcome_filter?: boolean;
+      min_similarity?: number;
+    } = {}
+  ): Promise<Case[]> {
+    try {
+      // Check if semantic analyzer is available
+      if (!semanticAnalyzer.isReady()) {
+        throw new Error('SemanticAnalyzer is not ready');
+      }
+
+      // Extract semantic features from the query
+      const queryFeatures = await semanticAnalyzer.extractSemanticFeatures(
+        problemDescription,
+        this.semanticIntents
+      );
+
+      // Filter cases based on provided filters
+      let filteredCases = this.caseBase;
+
+      if (filters.context_filter) {
+        filteredCases = filteredCases.filter(
+          (case_) =>
+            case_.context?.includes(filters.context_filter!) ||
+            case_.problem_description.includes(filters.context_filter!)
+        );
+      }
+
+      if (filters.goal_type_filter) {
+        filteredCases = filteredCases.filter(
+          (case_) => case_.goal_type === filters.goal_type_filter
+        );
+      }
+
+      if (filters.difficulty_filter) {
+        filteredCases = filteredCases.filter(
+          (case_) => case_.difficulty_level === filters.difficulty_filter
+        );
+      }
+
+      if (filters.outcome_filter !== undefined) {
+        filteredCases = filteredCases.filter((case_) => case_.outcome === filters.outcome_filter);
+      }
+
+      // Calculate enhanced similarity scores
+      const scoredCases = await Promise.all(
+        filteredCases.map(async (case_) => {
+          const similarity = await this.calculateEnhancedSimilarity(
+            problemDescription,
+            case_.problem_description,
+            queryFeatures,
+            case_.semantic_features
+          );
+
+          // Apply usage-based boost for proven cases
+          const usageBoost = Math.min(0.1, (case_.usage_count || 0) * 0.02);
+          const successBoost = case_.outcome ? 0.05 : 0;
+          const confidenceBoost = (case_.confidence_score || 0) * 0.1;
+
+          const adjustedSimilarity = similarity + usageBoost + successBoost + confidenceBoost;
+
+          return {
+            case: {
+              ...case_,
+              similarity_metrics: {
+                ...case_.similarity_metrics,
+                combined_similarity: adjustedSimilarity,
+              },
+            },
+            similarity: adjustedSimilarity,
+          };
+        })
+      );
+
+      // Filter by minimum similarity threshold
+      const minSimilarity = filters.min_similarity || 0.1;
+      const validCases = scoredCases.filter((item) => item.similarity >= minSimilarity);
+
+      // Sort by similarity and success rate
+      const sortedCases = validCases.sort((a, b) => {
+        // Primary sort by similarity
+        if (Math.abs(a.similarity - b.similarity) > 0.05) {
+          return b.similarity - a.similarity;
         }
-        break;
+        // Secondary sort by success rate for similar cases
+        const aSuccessRate = a.case.success_rate || (a.case.outcome ? 1 : 0);
+        const bSuccessRate = b.case.success_rate || (b.case.outcome ? 1 : 0);
+        return bSuccessRate - aSuccessRate;
+      });
 
-      case 'task_model_error':
-        if (trace.recent_actions.length > 5) {
-          const hasProgress = trace.recent_actions.length > 0;
-          if (!hasProgress) {
-            evidence.push('No progress suggests incorrect task understanding');
-          }
-        }
-        break;
-    }
+      // Update usage statistics for retrieved cases
+      const results = sortedCases.slice(0, maxResults);
+      results.forEach((item) => {
+        item.case.usage_count = (item.case.usage_count || 0) + 1;
+      });
 
-    return evidence;
-  }
-
-  private async calculateHypothesisConfidence(
-    hypothesis: FailureHypothesis,
-    trace: CognitiveTrace & { recent_actions: string[] }
-  ): Promise<number> {
-    const evidence = await this.gatherEvidence(hypothesis, trace);
-    const baseConfidence = 0.4;
-    const evidenceBonus = evidence.length * 0.15;
-
-    return Math.min(0.95, baseConfidence + evidenceBonus);
-  }
-
-  private generateDiagnosticActions(
-    hypothesis: FailureHypothesis,
-    _trace: CognitiveTrace & { recent_actions: string[] }
-  ): string[] {
-    switch (hypothesis) {
-      case 'element_state_error':
-        return [
-          'Check element visibility and enabled state',
-          'Verify element is not obscured by overlays',
-          'Wait for element to become interactive',
-        ];
-
-      case 'page_state_error':
-        return [
-          'Refresh the page',
-          'Wait for pending network requests',
-          'Check for JavaScript errors',
-        ];
-
-      case 'selector_error':
-        return [
-          'Try alternative selectors for the same element',
-          'Use xpath or CSS selector alternatives',
-          'Switch to visual element identification',
-        ];
-
-      case 'task_model_error':
-        return [
-          'Re-examine the current goal and sub-goals',
-          'Gather more information about page structure',
-          'Consider alternative task decomposition',
-        ];
-
-      case 'network_error':
-        return ['Retry the last action', 'Check network connectivity', 'Increase timeout values'];
-
-      default:
-        return [
-          'Gather more diagnostic information',
-          'Try a different approach',
-          'Consider human escalation',
-        ];
-    }
-  }
-
-  private mapDiagnosisToLoopType(diagnosis: DiagnosisResult): any {
-    // Map diagnosis back to loop type for case retrieval
-    switch (diagnosis.primary_hypothesis) {
-      case 'element_state_error':
-      case 'selector_error':
-        return 'action_repetition';
-      case 'page_state_error':
-      case 'network_error':
-        return 'state_invariance';
-      case 'task_model_error':
-        return 'progress_stagnation';
-      default:
-        return 'action_repetition';
-    }
-  }
-
-  private extractContext(trace: CognitiveTrace & { recent_actions: string[] }): string {
-    const recentActions = trace.recent_actions.slice(-3).join(' -> ');
-    const currentContext = trace.current_context || 'unknown';
-    return `Actions: ${recentActions}, Context: ${currentContext}, Goal: ${trace.goal}`;
-  }
-
-  private generateNovelRecoveryPlan(
-    diagnosis: DiagnosisResult,
-    trace: CognitiveTrace & { recent_actions: string[] },
-    availablePatterns?: RecoveryPattern[]
-  ): RecoveryPlan {
-    const patterns = availablePatterns || [
-      'strategic_retreat',
-      'context_refresh',
-      'modality_switching',
-    ];
-    const selectedPattern = this.selectRecoveryPattern(diagnosis, patterns);
-
-    return {
-      pattern: selectedPattern,
-      actions: this.generateActionsForPattern(selectedPattern, diagnosis, trace),
-      rationale: `Novel recovery plan for ${diagnosis.primary_hypothesis} with confidence ${diagnosis.confidence}`,
-      expected_outcome: 'Break current loop and resume progress toward goal',
-    };
-  }
-
-  private selectRecoveryPattern(
-    diagnosis: DiagnosisResult,
-    availablePatterns: RecoveryPattern[]
-  ): RecoveryPattern {
-    switch (diagnosis.primary_hypothesis) {
-      case 'page_state_error':
-      case 'network_error':
-        return availablePatterns.includes('context_refresh')
-          ? 'context_refresh'
-          : availablePatterns[0];
-      case 'selector_error':
-      case 'element_state_error':
-        return availablePatterns.includes('modality_switching')
-          ? 'modality_switching'
-          : availablePatterns[0];
-      case 'task_model_error':
-        return availablePatterns.includes('information_foraging')
-          ? 'information_foraging'
-          : availablePatterns[0];
-      default:
-        return availablePatterns.includes('strategic_retreat')
-          ? 'strategic_retreat'
-          : availablePatterns[0];
-    }
-  }
-
-  private generateActionsForPattern(
-    pattern: RecoveryPattern,
-    _diagnosis: DiagnosisResult,
-    _trace: CognitiveTrace & { recent_actions: string[] }
-  ): string[] {
-    switch (pattern) {
-      case 'strategic_retreat':
-        return [
-          'Undo last 2-3 actions',
-          'Return to known good state',
-          'Try alternative approach to current sub-goal',
-        ];
-
-      case 'context_refresh':
-        return [
-          'Refresh page',
-          'Clear browser cache',
-          'Restart from current goal with fresh state',
-        ];
-
-      case 'modality_switching':
-        return [
-          'Take screenshot of current page',
-          'Use visual element detection',
-          'Click element by coordinates instead of selector',
-        ];
-
-      case 'information_foraging':
-        return [
-          'Explore page structure systematically',
-          'Document available interactive elements',
-          'Build updated mental model of page',
-        ];
-
-      case 'human_escalation':
-        return [
-          'Pause autonomous execution',
-          'Request human guidance',
-          'Provide detailed context about failure',
-        ];
-
-      default:
-        return ['Try generic recovery approach'];
+      return results.map((item) => item.case);
+    } catch (error) {
+      console.error('Error retrieving similar cases:', error);
+      // Fallback to simple similarity matching
+      return this.fallbackRetrieveSimilarCases(problemDescription, maxResults);
     }
   }
 
@@ -461,5 +312,316 @@ export class Adjudicator {
 
     const jaccardSimilarity = intersection.size / union.size;
     return 1 - jaccardSimilarity; // Return distance (1 - similarity)
+  }
+
+  /**
+   * Enhanced similarity calculation combining semantic and traditional methods
+   */
+  private async calculateEnhancedSimilarity(
+    query: string,
+    caseDescription: string,
+    queryFeatures: any,
+    caseFeatures: any
+  ): Promise<number> {
+    // Get semantic similarity from semantic analyzer
+    const semanticResult = await semanticAnalyzer.calculateSemanticSimilarity(
+      query,
+      caseDescription
+    );
+    const semanticSimilarity = semanticResult.similarity;
+
+    // Traditional NLP similarity (fallback)
+    const traditionalSimilarity = this.calculateCaseSimilarity(query, caseDescription);
+
+    // Feature-based similarity
+    const featureSimilarity = this.calculateFeatureSimilarity(queryFeatures, caseFeatures);
+
+    // Combine similarities with weights
+    const combinedSimilarity =
+      semanticSimilarity * 0.5 + traditionalSimilarity * 0.3 + featureSimilarity * 0.2;
+
+    return Math.max(0, Math.min(1, combinedSimilarity));
+  }
+
+  /**
+   * Calculate similarity between semantic features
+   */
+  private calculateFeatureSimilarity(features1: any, features2: any): number {
+    if (!features1 || !features2) return 0;
+
+    let similarity = 0;
+    let weights = 0;
+
+    // Intent similarity
+    if (features1.intents && features2.intents) {
+      const intentOverlap = this.calculateArrayOverlap(features1.intents, features2.intents);
+      similarity += intentOverlap * 0.4;
+      weights += 0.4;
+    }
+
+    // Keyword similarity
+    if (features1.keywords && features2.keywords) {
+      const keywordOverlap = this.calculateArrayOverlap(features1.keywords, features2.keywords);
+      similarity += keywordOverlap * 0.4;
+      weights += 0.4;
+    }
+
+    // Sentiment similarity
+    if (features1.sentiment && features2.sentiment) {
+      const sentimentMatch = features1.sentiment === features2.sentiment ? 1 : 0;
+      similarity += sentimentMatch * 0.2;
+      weights += 0.2;
+    }
+
+    return weights > 0 ? similarity / weights : 0;
+  }
+
+  /**
+   * Calculate overlap between two arrays
+   */
+  private calculateArrayOverlap(arr1: string[], arr2: string[]): number {
+    if (!arr1.length || !arr2.length) return 0;
+
+    const set1 = new Set(arr1);
+    const set2 = new Set(arr2);
+    const intersection = new Set([...set1].filter((x) => set2.has(x)));
+    const union = new Set([...set1, ...set2]);
+
+    return intersection.size / union.size;
+  }
+
+  /**
+   * Extract keywords from text using simple heuristics
+   */
+  private extractKeywords(text: string): string[] {
+    const words = text.toLowerCase().split(/\s+/);
+    const stopWords = new Set([
+      'the',
+      'a',
+      'an',
+      'and',
+      'or',
+      'but',
+      'in',
+      'on',
+      'at',
+      'to',
+      'for',
+      'of',
+      'with',
+      'by',
+      'is',
+      'was',
+      'are',
+      'were',
+      'be',
+      'been',
+      'have',
+      'has',
+      'had',
+      'do',
+      'does',
+      'did',
+      'will',
+      'would',
+      'could',
+      'should',
+      'may',
+      'might',
+      'can',
+      'this',
+      'that',
+      'these',
+      'those',
+    ]);
+
+    return words
+      .filter((word) => word.length > 2 && !stopWords.has(word))
+      .filter((word, index, arr) => arr.indexOf(word) === index) // Remove duplicates
+      .slice(0, 10); // Limit to top 10 keywords
+  }
+
+  /**
+   * Calculate confidence score for a case
+   */
+  private calculateCaseConfidence(
+    case_: Case,
+    problemFeatures: any,
+    solutionFeatures: any
+  ): number {
+    let confidence = 0.5; // Base confidence
+
+    // Length-based confidence (longer descriptions tend to be more detailed)
+    const descriptionLength = case_.problem_description.length + case_.solution.length;
+    confidence += Math.min(0.2, (descriptionLength / 1000) * 0.2);
+
+    // Feature quality confidence
+    const featureCount =
+      (problemFeatures.intents?.length || 0) + (solutionFeatures.intents?.length || 0);
+    confidence += Math.min(0.2, featureCount * 0.05);
+
+    // Sentiment consistency (positive sentiment for successful cases)
+    if (
+      case_.outcome &&
+      (problemFeatures.sentiment === 'positive' || solutionFeatures.sentiment === 'positive')
+    ) {
+      confidence += 0.1;
+    }
+
+    return Math.max(0, Math.min(1, confidence));
+  }
+
+  /**
+   * Validate case quality
+   */
+  private validateCase(case_: Case): number {
+    let score = 0.5; // Base score
+
+    // Check for minimum description length
+    if (case_.problem_description.length < 10 || case_.solution.length < 10) {
+      score -= 0.3;
+    }
+
+    // Check for generic or vague descriptions
+    const genericTerms = ['error', 'problem', 'issue', 'failed', 'broken'];
+    const genericCount = genericTerms.reduce(
+      (count, term) => count + (case_.problem_description.toLowerCase().includes(term) ? 1 : 0),
+      0
+    );
+    score -= genericCount * 0.1;
+
+    // Bonus for specific context information
+    if (case_.context && case_.context.length > 5) {
+      score += 0.2;
+    }
+
+    return Math.max(0, Math.min(1, score));
+  }
+
+  /**
+   * Check if case is duplicate
+   */
+  private isDuplicateCase(newCase: Case): boolean {
+    return this.caseBase.some(
+      (existingCase) =>
+        this.calculateCaseSimilarity(
+          newCase.problem_description,
+          existingCase.problem_description
+        ) > 0.9 && this.calculateCaseSimilarity(newCase.solution, existingCase.solution) > 0.9
+    );
+  }
+
+  /**
+   * Update existing case with new information
+   */
+  private updateExistingCase(newCase: Case): void {
+    const existingIndex = this.caseBase.findIndex(
+      (existingCase) =>
+        this.calculateCaseSimilarity(
+          newCase.problem_description,
+          existingCase.problem_description
+        ) > 0.9 && this.calculateCaseSimilarity(newCase.solution, existingCase.solution) > 0.9
+    );
+
+    if (existingIndex !== -1) {
+      const existing = this.caseBase[existingIndex];
+      // Update success rate
+      const totalUses = (existing.usage_count || 0) + 1;
+      const previousSuccesses = (existing.success_rate || 0) * (existing.usage_count || 0);
+      const newSuccesses = previousSuccesses + (newCase.outcome ? 1 : 0);
+
+      existing.success_rate = newSuccesses / totalUses;
+      existing.usage_count = totalUses;
+      existing.timestamp = Date.now();
+    }
+  }
+
+  /**
+   * Update case index for faster retrieval
+   */
+  private updateIndex(case_: Case): void {
+    // Index by goal type
+    if (case_.goal_type) {
+      if (!this.caseIndex.has(case_.goal_type)) {
+        this.caseIndex.set(case_.goal_type, []);
+      }
+      this.caseIndex.get(case_.goal_type)!.push(case_);
+    }
+
+    // Index by context
+    if (case_.context) {
+      if (!this.caseIndex.has(case_.context)) {
+        this.caseIndex.set(case_.context, []);
+      }
+      this.caseIndex.get(case_.context)!.push(case_);
+    }
+  }
+
+  /**
+   * Intelligent case base pruning
+   */
+  private pruneeCaseBase(): void {
+    // Sort by quality score combining multiple factors
+    const scoredCases = this.caseBase.map((case_) => ({
+      case: case_,
+      quality: this.calculateCaseQuality(case_),
+    }));
+
+    // Keep top 800 cases
+    const prunedCases = scoredCases
+      .sort((a, b) => b.quality - a.quality)
+      .slice(0, 800)
+      .map((item) => item.case);
+
+    this.caseBase = prunedCases;
+    this.rebuildIndex();
+  }
+
+  /**
+   * Calculate overall case quality for pruning decisions
+   */
+  private calculateCaseQuality(case_: Case): number {
+    let quality = 0;
+
+    // Success rate contribution
+    quality += (case_.success_rate || 0) * 0.3;
+
+    // Usage count contribution (normalized)
+    quality += Math.min(0.2, ((case_.usage_count || 0) / 10) * 0.2);
+
+    // Confidence score contribution
+    quality += (case_.confidence_score || 0) * 0.2;
+
+    // Validation score contribution
+    quality += (case_.validation_score || 0) * 0.2;
+
+    // Recency contribution (newer cases get slight boost)
+    const ageDays = (Date.now() - (case_.timestamp || 0)) / (1000 * 60 * 60 * 24);
+    quality += Math.max(0, 0.1 - ageDays * 0.001);
+
+    return quality;
+  }
+
+  /**
+   * Rebuild index after pruning
+   */
+  private rebuildIndex(): void {
+    this.caseIndex.clear();
+    this.caseBase.forEach((case_) => this.updateIndex(case_));
+  }
+
+  /**
+   * Fallback method for case retrieval when semantic analysis fails
+   */
+  private fallbackRetrieveSimilarCases(problemDescription: string, maxResults: number): Case[] {
+    const scoredCases = this.caseBase.map((case_) => ({
+      case: case_,
+      similarity: this.calculateCaseSimilarity(problemDescription, case_.problem_description),
+    }));
+
+    return scoredCases
+      .sort((a, b) => b.similarity - a.similarity)
+      .slice(0, maxResults)
+      .map((item) => item.case);
   }
 }

@@ -21,6 +21,11 @@ export class DualCycleEngine {
     this.sentinel = new Sentinel(config);
     this.adjudicator = new Adjudicator();
     this.currentTrace = this.initializeTrace();
+
+    // Configure semantic intents if provided
+    if (config?.semantic_intents) {
+      this.adjudicator.updateSemanticIntents(config.semantic_intents);
+    }
   }
 
   /**
@@ -207,7 +212,6 @@ export class DualCycleEngine {
     };
   }
 
-
   /**
    * Reset the engine state (useful for testing or new sessions)
    */
@@ -223,7 +227,17 @@ export class DualCycleEngine {
   /**
    * Get similar cases for analysis
    */
-  getSimilarCases(problemDescription: string, maxResults: number = 5): Case[] {
-    return this.adjudicator.retrieveSimilarCases(problemDescription, maxResults);
+  async getSimilarCases(
+    problemDescription: string,
+    maxResults: number = 5,
+    filters: {
+      context_filter?: string;
+      goal_type_filter?: string;
+      difficulty_filter?: 'low' | 'medium' | 'high';
+      outcome_filter?: boolean;
+      min_similarity?: number;
+    } = {}
+  ): Promise<Case[]> {
+    return await this.adjudicator.retrieveSimilarCases(problemDescription, maxResults, filters);
   }
 }

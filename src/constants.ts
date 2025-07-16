@@ -18,18 +18,6 @@ export const DESCRIPTIONS = {
   TREND_SCORE: 'Statistical trend score',
   CYCLICITY_SCORE: 'Statistical cyclicity score',
 
-  // Diagnosis
-  PRIMARY_HYPOTHESIS: 'Primary hypothesis from diagnosis',
-  DIAGNOSIS_CONFIDENCE: 'Confidence in diagnosis',
-  EVIDENCE: 'Evidence supporting the diagnosis',
-  SUGGESTED_ACTIONS: 'Suggested actions from diagnosis',
-  SENTIMENT_SCORE: 'Semantic sentiment score',
-  CONFIDENCE_FACTORS: 'Factors affecting confidence',
-  EVIDENCE_QUALITY: 'Quality of evidence',
-
-  // Recovery
-  AVAILABLE_PATTERNS: 'Available recovery patterns',
-
   // Beliefs
   CURRENT_BELIEFS: 'Current beliefs as simple strings',
   CONTRADICTING_EVIDENCE: 'Evidence that contradicts current beliefs',
@@ -47,7 +35,6 @@ export const DESCRIPTIONS = {
   WINDOW_SIZE: 'Size of the monitoring window',
   MAX_RESULTS: 'Maximum number of cases to return',
 
-
   // Configuration parameters
   PROGRESS_INDICATORS:
     'Action patterns that indicate positive task progress (e.g., ["success", "complete", "found"])',
@@ -56,6 +43,8 @@ export const DESCRIPTIONS = {
   REPETITION_THRESHOLD: 'Threshold for detecting repetitive action patterns (0.0-1.0)',
   PROGRESS_THRESHOLD_ADJUSTMENT:
     'How much to increase thresholds when progress indicators are present',
+  SEMANTIC_INTENTS:
+    'Domain-specific action intents for semantic analysis (e.g., ["navigating", "clicking", "typing"])',
 
   // Threshold descriptions
   ENTROPY_THRESHOLD: 'Threshold for entropy-based anomaly detection',

@@ -19,6 +19,22 @@ export const SentinelConfigSchema = z.object({
       cyclicity_threshold: z.number().default(0.3).describe(DESCRIPTIONS.CYCLICITY_THRESHOLD),
     })
     .optional(),
+  // Domain-specific semantic configuration
+  semantic_intents: z
+    .array(z.string())
+    .default([
+      'performing action',
+      'checking status',
+      'retrieving information',
+      'processing data',
+      'handling error',
+      'completing task',
+      'initiating process',
+      'validating result',
+      'organizing information',
+      'communicating result',
+    ])
+    .describe(DESCRIPTIONS.SEMANTIC_INTENTS),
 });
 
 // Simplified Core Types for LLM usability
@@ -68,47 +84,7 @@ export const LoopDetectionResultSchema = z.object({
     .optional(),
 });
 
-// Failure Diagnosis Types
-export const FailureHypothesisSchema = z.enum([
-  'element_state_error',
-  'page_state_error',
-  'selector_error',
-  'task_model_error',
-  'network_error',
-  'unknown',
-]);
-
-export const DiagnosisResultSchema = z.object({
-  primary_hypothesis: FailureHypothesisSchema,
-  confidence: z.number(),
-  evidence: z.array(z.string()),
-  suggested_actions: z.array(z.string()),
-  semantic_analysis: z
-    .object({
-      sentiment_score: z.number().optional(),
-      confidence_factors: z.array(z.string()).optional(),
-      evidence_quality: z.number().optional(),
-    })
-    .optional(),
-});
-
-// Recovery Strategy Types
-export const RecoveryPatternSchema = z.enum([
-  'strategic_retreat',
-  'context_refresh',
-  'modality_switching',
-  'information_foraging',
-  'human_escalation',
-]);
-
-export const RecoveryPlanSchema = z.object({
-  pattern: RecoveryPatternSchema,
-  actions: z.array(z.string()),
-  rationale: z.string(),
-  expected_outcome: z.string(),
-});
-
-// Simplified Case-Based Reasoning Types
+// Enhanced Case-Based Reasoning Types
 export const CaseSchema = z.object({
   id: z
     .string()
@@ -121,11 +97,30 @@ export const CaseSchema = z.object({
     .number()
     .optional()
     .default(() => Date.now()),
+  // Enhanced metadata for better retrieval
+  context: z.string().optional(),
+  goal_type: z.string().optional(),
+  difficulty_level: z.enum(['low', 'medium', 'high']).optional(),
+  success_rate: z.number().min(0).max(1).optional(),
+  usage_count: z.number().min(0).default(0),
+  // Quality metrics
+  confidence_score: z.number().min(0).max(1).optional(),
+  validation_score: z.number().min(0).max(1).optional(),
+  // Semantic features
+  semantic_features: z
+    .object({
+      intents: z.array(z.string()).optional(),
+      sentiment: z.enum(['positive', 'negative', 'neutral']).optional(),
+      keywords: z.array(z.string()).optional(),
+    })
+    .optional(),
+  // Similarity metrics (computed during retrieval)
   similarity_metrics: z
     .object({
       semantic_similarity: z.number().optional(),
       jaccard_similarity: z.number().optional(),
       cosine_similarity: z.number().optional(),
+      combined_similarity: z.number().optional(),
     })
     .optional(),
 });
@@ -144,45 +139,29 @@ export const DetectLoopInputSchema = z.object({
   detection_method: z.enum(['statistical', 'pattern', 'hybrid']).default('hybrid'),
 });
 
-export const DiagnoseFailureInputSchema = z.object({
-  loop_detected: z.boolean().describe(DESCRIPTIONS.LOOP_DETECTED),
-  loop_type: z.optional(LoopTypeSchema).describe(DESCRIPTIONS.LOOP_TYPE),
-  loop_confidence: z.number().describe(DESCRIPTIONS.LOOP_CONFIDENCE),
-  loop_details: z.string().describe(DESCRIPTIONS.LOOP_DETAILS),
-  actions_involved: z.array(z.string()).optional().describe(DESCRIPTIONS.ACTIONS_INVOLVED),
-  entropy_score: z.number().optional().describe(DESCRIPTIONS.ENTROPY_SCORE),
-  variance_score: z.number().optional().describe(DESCRIPTIONS.VARIANCE_SCORE),
-  trend_score: z.number().optional().describe(DESCRIPTIONS.TREND_SCORE),
-  cyclicity_score: z.number().optional().describe(DESCRIPTIONS.CYCLICITY_SCORE),
-  current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
-  goal: z.string().describe(DESCRIPTIONS.GOAL),
-});
-
-export const GenerateRecoveryPlanInputSchema = z.object({
-  primary_hypothesis: FailureHypothesisSchema.describe(DESCRIPTIONS.PRIMARY_HYPOTHESIS),
-  diagnosis_confidence: z.number().describe(DESCRIPTIONS.DIAGNOSIS_CONFIDENCE),
-  evidence: z.array(z.string()).describe(DESCRIPTIONS.EVIDENCE),
-  suggested_actions: z.array(z.string()).describe(DESCRIPTIONS.SUGGESTED_ACTIONS),
-  sentiment_score: z.number().optional().describe(DESCRIPTIONS.SENTIMENT_SCORE),
-  confidence_factors: z.array(z.string()).optional().describe(DESCRIPTIONS.CONFIDENCE_FACTORS),
-  evidence_quality: z.number().optional().describe(DESCRIPTIONS.EVIDENCE_QUALITY),
-  current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
-  goal: z.string().describe(DESCRIPTIONS.GOAL),
-  available_patterns: z
-    .array(RecoveryPatternSchema)
-    .optional()
-    .describe(DESCRIPTIONS.AVAILABLE_PATTERNS),
-});
-
 export const StoreExperienceInputSchema = z.object({
   problem_description: z.string().describe(DESCRIPTIONS.PROBLEM_DESCRIPTION),
   solution: z.string().describe(DESCRIPTIONS.SOLUTION),
   outcome: z.boolean().describe(DESCRIPTIONS.OUTCOME),
+  context: z.string().optional().describe('The context in which this case occurred'),
+  goal_type: z.string().optional().describe('The type of goal this case relates to'),
+  difficulty_level: z
+    .enum(['low', 'medium', 'high'])
+    .optional()
+    .describe('The difficulty level of this case'),
 });
 
 export const RetrieveSimilarCasesInputSchema = z.object({
   problem_description: z.string().describe(DESCRIPTIONS.PROBLEM_DESCRIPTION),
   max_results: z.number().default(5).describe(DESCRIPTIONS.MAX_RESULTS),
+  context_filter: z.string().optional().describe('Filter cases by context'),
+  goal_type_filter: z.string().optional().describe('Filter cases by goal type'),
+  difficulty_filter: z
+    .enum(['low', 'medium', 'high'])
+    .optional()
+    .describe('Filter cases by difficulty level'),
+  outcome_filter: z.boolean().optional().describe('Filter cases by outcome (success/failure)'),
+  min_similarity: z.number().min(0).max(1).default(0.1).describe('Minimum similarity threshold'),
 });
 
 // Type exports
@@ -191,9 +170,5 @@ export type EnvironmentState = z.infer<typeof EnvironmentStateSchema>;
 export type CognitiveTrace = z.infer<typeof CognitiveTraceSchema>;
 export type LoopType = z.infer<typeof LoopTypeSchema>;
 export type LoopDetectionResult = z.infer<typeof LoopDetectionResultSchema>;
-export type FailureHypothesis = z.infer<typeof FailureHypothesisSchema>;
-export type DiagnosisResult = z.infer<typeof DiagnosisResultSchema>;
-export type RecoveryPattern = z.infer<typeof RecoveryPatternSchema>;
-export type RecoveryPlan = z.infer<typeof RecoveryPlanSchema>;
 export type Case = z.infer<typeof CaseSchema>;
 export type SentinelConfig = z.infer<typeof SentinelConfigSchema>;

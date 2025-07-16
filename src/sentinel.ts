@@ -14,6 +14,18 @@ export class Sentinel {
       alternating_threshold: config.alternating_threshold || 0.5,
       repetition_threshold: config.repetition_threshold || 0.4,
       progress_threshold_adjustment: config.progress_threshold_adjustment || 0.2,
+      semantic_intents: config.semantic_intents || [
+        'performing action',
+        'checking status',
+        'retrieving information',
+        'processing data',
+        'handling error',
+        'completing task',
+        'initiating process',
+        'validating result',
+        'organizing information',
+        'communicating result',
+      ],
     };
   }
 

@@ -41,6 +41,17 @@ jest.mock('../src/semantic-analyzer', () => ({
       confidence: 0.8,
       reasoning: 'Evidence contradicts belief',
     })),
+    extractSemanticFeatures: jest.fn(async () => ({
+      intents: ['performing action', 'checking status'],
+      sentiment: 'positive',
+      confidence: 0.8,
+    })),
+    calculateSemanticSimilarity: jest.fn(async () => ({
+      similarity: 0.7,
+      confidence: 0.8,
+      reasoning: 'Semantic similarity analysis',
+    })),
+    isReady: jest.fn(() => true),
   },
 }));
 
@@ -153,10 +164,10 @@ describe('DualCycleEngine with Fixtures', () => {
       };
 
       const adjudicator = (engine as any).adjudicator;
-      adjudicator.storeExperience(experience);
+      await adjudicator.storeExperience(experience);
 
       // Retrieve similar cases
-      const similarCases = engine.getSimilarCases('pricing table comparison', 3);
+      const similarCases = await engine.getSimilarCases('pricing table comparison', 3);
 
       expect(similarCases).toBeDefined();
       expect(similarCases.length).toBeGreaterThan(0);
@@ -275,7 +286,7 @@ describe('DualCycleEngine with Fixtures', () => {
       }
     });
 
-    it('should diagnose failure and generate recovery plan for loop', async () => {
+    it('should detect loop and retrieve similar cases for recovery', async () => {
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
 
       const sentinel = (engine as any).sentinel;
@@ -284,23 +295,25 @@ describe('DualCycleEngine with Fixtures', () => {
       // Detect loop
       const loopResult = sentinel.detectLoop(trace, 'hybrid');
 
-      // Diagnose failure
-      const diagnosis = await adjudicator.diagnoseFailure(loopResult, trace);
+      expect(loopResult).toBeDefined();
+      expect(loopResult.detected).toBe(true);
+      expect(loopResult.confidence).toBeGreaterThan(0);
 
-      expect(diagnosis).toBeDefined();
-      expect(diagnosis.primary_hypothesis).toBeDefined();
-      expect(diagnosis.confidence).toBeGreaterThan(0);
-      expect(diagnosis.suggested_actions).toBeDefined();
-      expect(diagnosis.suggested_actions.length).toBeGreaterThan(0);
+      // Store a related experience case
+      const experience = {
+        problem_description: 'Stuck in scrolling loop trying to find element',
+        solution: 'Use alternative navigation method',
+        outcome: true,
+      };
 
-      // Generate recovery plan
-      const recoveryPlan = adjudicator.generateRecoveryPlan(diagnosis, trace);
+      await adjudicator.storeExperience(experience);
 
-      expect(recoveryPlan).toBeDefined();
-      expect(recoveryPlan.pattern).toBeDefined();
-      expect(recoveryPlan.actions).toBeDefined();
-      expect(recoveryPlan.actions.length).toBeGreaterThan(0);
-      expect(recoveryPlan.rationale).toBeDefined();
+      // Retrieve similar cases for recovery
+      const similarCases = await engine.getSimilarCases('scrolling loop navigation', 3);
+
+      expect(similarCases).toBeDefined();
+      expect(similarCases.length).toBeGreaterThan(0);
+      expect(similarCases[0].problem_description).toContain('scrolling');
     });
 
     it('should handle recovery outcome updates', async () => {
@@ -311,7 +324,6 @@ describe('DualCycleEngine with Fixtures', () => {
       for (const action of trace.recent_actions) {
         await engine.processTraceUpdate(action, trace.current_context, trace.goal);
       }
-
 
       const status = engine.getMonitoringStatus();
       expect(status.intervention_count).toBeGreaterThan(0);
@@ -381,7 +393,6 @@ describe('DualCycleEngine with Fixtures', () => {
       }
     });
   });
-
 
   describe('Configuration Tests', () => {
     it('should handle different detection thresholds', async () => {
@@ -472,7 +483,6 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(result.intervention_required).toBe(true);
       expect(result.loop_detected?.detected).toBe(true);
       expect(result.explanation).toBeDefined();
-
 
       const status = engine.getMonitoringStatus();
       expect(status.intervention_count).toBe(1);

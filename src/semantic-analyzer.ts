@@ -6,14 +6,14 @@ export interface SemanticAnalysisResult {
   confidence: number;
 }
 
-export interface BeliefContradictionResult {
-  contradicts: boolean;
+export interface ActionAssessmentResult {
+  category: 'success' | 'failure' | 'neutral';
   confidence: number;
   reasoning: string;
 }
 
-export interface ActionAssessmentResult {
-  category: 'success' | 'failure' | 'neutral';
+export interface SemanticSimilarityResult {
+  similarity: number;
   confidence: number;
   reasoning: string;
 }
@@ -50,7 +50,7 @@ export class SemanticAnalyzer {
     try {
       const labels = ['CONTRADICTION', 'ENTAILMENT', 'NEUTRAL'];
       const result = await this.nliClassifier(premise, labels, {
-        hypothesis_template: '{}',
+        hypothesis_template: `${hypothesis}`,
       });
 
       const output = Array.isArray(result) ? result[0] : result;
@@ -66,21 +66,6 @@ export class SemanticAnalyzer {
       console.error('Error analyzing text pair:', error);
       throw error;
     }
-  }
-
-  async assessBeliefContradiction(
-    belief: string,
-    evidence: string
-  ): Promise<BeliefContradictionResult> {
-    const analysis = await this.analyzeTextPair(belief, evidence);
-
-    const contradicts = analysis.label === 'CONTRADICTION' && analysis.confidence > 0.7;
-
-    return {
-      contradicts,
-      confidence: analysis.confidence,
-      reasoning: `NLI analysis: ${analysis.label} (confidence: ${analysis.confidence.toFixed(3)})`,
-    };
   }
 
   async assessActionOutcome(
@@ -108,60 +93,6 @@ export class SemanticAnalyzer {
       confidence: analysis.confidence,
       reasoning,
     };
-  }
-
-  async detectContradictionsInActions(actions: string[]): Promise<
-    Array<{
-      action1: string;
-      action2: string;
-      contradicts: boolean;
-      confidence: number;
-    }>
-  > {
-    const contradictions = [];
-
-    for (let i = 0; i < actions.length; i++) {
-      for (let j = i + 1; j < actions.length; j++) {
-        const analysis = await this.analyzeTextPair(actions[i], actions[j]);
-
-        if (analysis.label === 'CONTRADICTION' && analysis.confidence > 0.6) {
-          contradictions.push({
-            action1: actions[i],
-            action2: actions[j],
-            contradicts: true,
-            confidence: analysis.confidence,
-          });
-        }
-      }
-    }
-
-    return contradictions;
-  }
-
-  async analyzeBeliefConsistency(beliefs: string[]): Promise<
-    Array<{
-      belief1: string;
-      belief2: string;
-      relationship: 'contradiction' | 'entailment' | 'neutral';
-      confidence: number;
-    }>
-  > {
-    const relationships = [];
-
-    for (let i = 0; i < beliefs.length; i++) {
-      for (let j = i + 1; j < beliefs.length; j++) {
-        const analysis = await this.analyzeTextPair(beliefs[i], beliefs[j]);
-
-        relationships.push({
-          belief1: beliefs[i],
-          belief2: beliefs[j],
-          relationship: analysis.label.toLowerCase() as 'contradiction' | 'entailment' | 'neutral',
-          confidence: analysis.confidence,
-        });
-      }
-    }
-
-    return relationships;
   }
 
   async classifyActionIntent(
@@ -194,6 +125,121 @@ export class SemanticAnalyzer {
       confidence: scores[0].score,
       allScores: scores,
     };
+  }
+
+  /**
+   * Calculate semantic similarity between two texts using NLI-based approach
+   * Higher similarity indicates more related content
+   */
+  async calculateSemanticSimilarity(
+    text1: string,
+    text2: string
+  ): Promise<SemanticSimilarityResult> {
+    if (!this.isInitialized || !this.nliClassifier) {
+      throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
+    }
+
+    try {
+      // Analyze both directions for better similarity assessment
+      const analysis1 = await this.analyzeTextPair(text1, text2);
+      const analysis2 = await this.analyzeTextPair(text2, text1);
+
+      // Calculate similarity based on entailment and neutral scores
+      let similarity = 0;
+      let reasoning = '';
+
+      if (analysis1.label === 'ENTAILMENT' && analysis2.label === 'ENTAILMENT') {
+        // High bidirectional entailment indicates strong similarity
+        similarity = Math.max(analysis1.confidence, analysis2.confidence);
+        reasoning = 'Strong bidirectional semantic relationship';
+      } else if (analysis1.label === 'ENTAILMENT' || analysis2.label === 'ENTAILMENT') {
+        // Unidirectional entailment indicates moderate similarity
+        similarity = Math.max(analysis1.confidence, analysis2.confidence) * 0.8;
+        reasoning = 'Unidirectional semantic relationship';
+      } else if (analysis1.label === 'NEUTRAL' && analysis2.label === 'NEUTRAL') {
+        // Both neutral - moderate similarity based on confidence
+        similarity = ((analysis1.confidence + analysis2.confidence) / 2) * 0.6;
+        reasoning = 'Neutral semantic relationship with potential overlap';
+      } else if (analysis1.label === 'CONTRADICTION' || analysis2.label === 'CONTRADICTION') {
+        // Contradiction indicates low similarity
+        similarity = Math.min(analysis1.confidence, analysis2.confidence) * 0.2;
+        reasoning = 'Contradictory semantic relationship';
+      } else {
+        // Mixed results - moderate similarity
+        similarity = ((analysis1.confidence + analysis2.confidence) / 2) * 0.5;
+        reasoning = 'Mixed semantic relationship';
+      }
+
+      const overallConfidence = (analysis1.confidence + analysis2.confidence) / 2;
+
+      return {
+        similarity: Math.max(0, Math.min(1, similarity)),
+        confidence: overallConfidence,
+        reasoning,
+      };
+    } catch (error) {
+      console.error('Error calculating semantic similarity:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract semantic features from text for advanced similarity calculations
+   */
+  async extractSemanticFeatures(
+    text: string,
+    customIntents?: string[]
+  ): Promise<{
+    intents: string[];
+    sentiment: 'positive' | 'negative' | 'neutral';
+    confidence: number;
+  }> {
+    if (!this.isInitialized || !this.nliClassifier) {
+      throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
+    }
+
+    try {
+      // Use custom intents if provided, otherwise use generic ones
+      const intents = customIntents || [
+        'performing action',
+        'checking status',
+        'retrieving information',
+        'processing data',
+        'handling error',
+        'completing task',
+        'initiating process',
+        'validating result',
+        'organizing information',
+        'communicating result',
+      ];
+
+      const intentAnalysis = await this.classifyActionIntent(text, intents);
+
+      // Sentiment analysis using predefined labels
+      const sentimentLabels = ['positive outcome', 'negative outcome', 'neutral outcome'];
+      const sentimentResult = await this.nliClassifier(text, sentimentLabels);
+      const sentimentOutput = Array.isArray(sentimentResult) ? sentimentResult[0] : sentimentResult;
+
+      let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral';
+      if (sentimentOutput.labels[0] === 'positive outcome') {
+        sentiment = 'positive';
+      } else if (sentimentOutput.labels[0] === 'negative outcome') {
+        sentiment = 'negative';
+      }
+
+      return {
+        intents: [intentAnalysis.bestMatch],
+        sentiment,
+        confidence: Math.min(intentAnalysis.confidence, sentimentOutput.scores[0]),
+      };
+    } catch (error) {
+      console.error('Error extracting semantic features:', error);
+      return {
+        intents: [],
+        sentiment: 'neutral',
+        confidence: 0,
+      };
+    }
   }
 
   isReady(): boolean {

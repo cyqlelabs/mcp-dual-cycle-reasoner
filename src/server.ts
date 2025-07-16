@@ -82,6 +82,18 @@ Use this server to help autonomous agents become more self-aware and resilient.`
       alternating_threshold: 0.5,
       repetition_threshold: 0.4,
       progress_threshold_adjustment: 0.2,
+      semantic_intents: [
+        'performing action',
+        'checking status',
+        'retrieving information',
+        'processing data',
+        'handling error',
+        'completing task',
+        'initiating process',
+        'validating result',
+        'organizing information',
+        'communicating result',
+      ],
     };
 
     this.engine = new DualCycleEngine(this.config);
@@ -351,7 +363,6 @@ Use this server to help autonomous agents become more self-aware and resilient.`
     });
   }
 
-
   private addStoreExperienceTool(): void {
     this.server.addTool({
       name: 'store_experience',
@@ -382,11 +393,14 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             problem_description: validatedArgs.problem_description,
             solution: validatedArgs.solution,
             outcome: validatedArgs.outcome,
+            context: validatedArgs.context,
+            goal_type: validatedArgs.goal_type,
+            difficulty_level: validatedArgs.difficulty_level,
           };
 
           const adjudicator = (this.engine as any).adjudicator;
           const storedCase = CaseSchema.parse(caseData);
-          adjudicator.storeExperience(storedCase);
+          await adjudicator.storeExperience(storedCase);
 
           log.info('Experience case stored successfully', {
             caseId: storedCase.id || 'new',
@@ -429,9 +443,18 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
           await reportProgress({ progress: 0, total: 2 });
 
-          const result = this.engine.getSimilarCases(
+          const filters = {
+            context_filter: validatedArgs.context_filter,
+            goal_type_filter: validatedArgs.goal_type_filter,
+            difficulty_filter: validatedArgs.difficulty_filter,
+            outcome_filter: validatedArgs.outcome_filter,
+            min_similarity: validatedArgs.min_similarity,
+          };
+
+          const result = await this.engine.getSimilarCases(
             validatedArgs.problem_description,
-            validatedArgs.max_results
+            validatedArgs.max_results,
+            filters
           );
 
           await reportProgress({ progress: 2, total: 2 });
@@ -485,7 +508,6 @@ Use this server to help autonomous agents become more self-aware and resilient.`
       },
     });
   }
-
 
   private addResetEngineTool(): void {
     this.server.addTool({
@@ -547,6 +569,11 @@ Use this server to help autonomous agents become more self-aware and resilient.`
           .optional()
           .default(0.2)
           .describe(DESCRIPTIONS.PROGRESS_THRESHOLD_ADJUSTMENT),
+        semantic_intents: z
+          .array(z.string())
+          .optional()
+          .default([])
+          .describe(DESCRIPTIONS.SEMANTIC_INTENTS),
       }),
       annotations: {
         title: 'Configure Detection Parameters',
@@ -572,6 +599,11 @@ Use this server to help autonomous agents become more self-aware and resilient.`
           // Update the engine's sentinel configuration
           (this.engine as any).sentinel.updateConfig(this.config);
 
+          // Update the adjudicator's semantic intents if provided
+          if (newConfig.semantic_intents) {
+            (this.engine as any).adjudicator.updateSemanticIntents(newConfig.semantic_intents);
+          }
+
           log.info('Detection configuration updated successfully', {
             configKeys: Object.keys(newConfig),
           });
@@ -582,7 +614,8 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             `- Min actions for detection: ${this.config.min_actions_for_detection}\n` +
             `- Alternating threshold: ${this.config.alternating_threshold}\n` +
             `- Repetition threshold: ${this.config.repetition_threshold}\n` +
-            `- Progress threshold adjustment: ${this.config.progress_threshold_adjustment}`
+            `- Progress threshold adjustment: ${this.config.progress_threshold_adjustment}\n` +
+            `- Semantic intents: [${this.config.semantic_intents?.join(', ') || 'none'}]`
           );
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
