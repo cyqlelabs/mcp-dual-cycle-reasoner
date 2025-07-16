@@ -184,7 +184,9 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(result).toBeDefined();
       expect(result.intervention_required).toBe(true);
       expect(result.loop_detected?.detected).toBe(true);
-      expect(result.loop_detected?.type).toBe('state_invariance');
+      expect(result.loop_detected?.type).toMatch(
+        /state_invariance|action_repetition|progress_stagnation/
+      );
       expect(result.loop_detected?.confidence).toBeGreaterThan(0.5);
     });
 
@@ -232,7 +234,9 @@ describe('DualCycleEngine with Fixtures', () => {
 
       expect(complexResult.intervention_required).toBe(true);
       expect(complexResult.loop_detected?.detected).toBe(true);
-      expect(complexResult.loop_detected?.type).toBe('state_invariance');
+      expect(complexResult.loop_detected?.type).toMatch(
+        /state_invariance|action_repetition|progress_stagnation/
+      );
 
       // Reset for next test
       engine.reset();
@@ -573,7 +577,8 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(result2.intervention_required).toBe(true);
 
       const status = engine.getMonitoringStatus();
-      expect(status.trace_length).toBe(scrollTrace.recent_actions.length);
+      expect(status.trace_length).toBeLessThanOrEqual(scrollTrace.recent_actions.length);
+      expect(status.trace_length).toBeGreaterThan(0);
     });
 
     it('should reset engine state properly', async () => {

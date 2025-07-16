@@ -3,6 +3,9 @@
     "recent_actions": [
       "scroll_down",
       "scroll_down",
+      "click_element_by_index",
+      "scroll_down",
+      "scroll_down",
       "click_element_by_index"
     ],
     "current_context": "newsletter_subscription_form",

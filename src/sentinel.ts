@@ -71,14 +71,18 @@ export class Sentinel {
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 10
   ): LoopDetectionResult {
-    if (!trace.recent_actions || !Array.isArray(trace.recent_actions) || trace.recent_actions.length === 0) {
+    if (
+      !trace.recent_actions ||
+      !Array.isArray(trace.recent_actions) ||
+      trace.recent_actions.length === 0
+    ) {
       return { detected: false, confidence: 0, details: 'No action history available' };
     }
 
     // Use configurable minimum actions threshold to avoid false positives on legitimate exploration
     const minActionsForDetection = Math.max(
       this.config.min_actions_for_detection,
-      Math.min(windowSize, 8)
+      Math.floor(windowSize * 0.5)
     );
     if (trace.recent_actions.length < minActionsForDetection) {
       return {
@@ -192,10 +196,24 @@ export class Sentinel {
    */
   detectStateInvariance(
     trace: CognitiveTrace & { recent_actions: string[] },
-    threshold: number = 2
+    threshold: number = 2,
+    windowSize: number = 10
   ): LoopDetectionResult {
     if (!trace.current_context) {
       return { detected: false, confidence: 0, details: 'No state context available' };
+    }
+
+    // Use same action history requirements as detectActionAnomalies for consistency
+    const minActionsForDetection = Math.max(
+      this.config.min_actions_for_detection,
+      Math.floor(windowSize * 0.5)
+    );
+    if (trace.recent_actions.length < minActionsForDetection) {
+      return {
+        detected: false,
+        confidence: 0,
+        details: `Insufficient action history: ${trace.recent_actions.length}/${minActionsForDetection} required`,
+      };
     }
 
     const currentContext = trace.current_context || 'unknown';
@@ -205,7 +223,10 @@ export class Sentinel {
     const currentStateHash = this.hashStateFeatures(stateFeatures);
 
     // Also consider recent actions as part of context for better detection
-    const actionContext = trace.recent_actions && Array.isArray(trace.recent_actions) ? trace.recent_actions.slice(-3).join('->') : '';
+    const actionContext =
+      trace.recent_actions && Array.isArray(trace.recent_actions)
+        ? trace.recent_actions.slice(-3).join('->')
+        : '';
     const combinedContext = `${currentContext}|${actionContext}`;
     const combinedStateHash = createHash('md5').update(combinedContext).digest('hex');
 
@@ -266,7 +287,11 @@ export class Sentinel {
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 6
   ): LoopDetectionResult {
-    if (!trace.recent_actions || !Array.isArray(trace.recent_actions) || trace.recent_actions.length < 3) {
+    if (
+      !trace.recent_actions ||
+      !Array.isArray(trace.recent_actions) ||
+      trace.recent_actions.length < 3
+    ) {
       return { detected: false, confidence: 0, details: 'Insufficient step history' };
     }
 
@@ -326,18 +351,19 @@ export class Sentinel {
    */
   detectLoop(
     trace: CognitiveTrace & { recent_actions: string[] },
-    method: 'statistical' | 'pattern' | 'hybrid' = 'hybrid'
+    method: 'statistical' | 'pattern' | 'hybrid' = 'hybrid',
+    windowSize: number = 10
   ): LoopDetectionResult {
     switch (method) {
       case 'statistical':
-        return this.detectActionAnomalies(trace);
+        return this.detectActionAnomalies(trace, windowSize);
       case 'pattern':
-        return this.detectStateInvariance(trace);
+        return this.detectStateInvariance(trace, 2, windowSize);
       case 'hybrid':
       default:
-        const actionResult = this.detectActionAnomalies(trace);
-        const stateResult = this.detectStateInvariance(trace);
-        const progressResult = this.detectProgressStagnation(trace);
+        const actionResult = this.detectActionAnomalies(trace, windowSize);
+        const stateResult = this.detectStateInvariance(trace, 2, windowSize);
+        const progressResult = this.detectProgressStagnation(trace, windowSize);
 
         // Combine results - if any method detects a loop with high confidence, flag it
         const results = [actionResult, stateResult, progressResult];

@@ -263,7 +263,8 @@ Use this server to help autonomous agents become more self-aware and resilient.`
           const result = await this.engine.processTraceUpdate(
             validatedArgs.last_action,
             validatedArgs.current_context,
-            validatedArgs.goal
+            validatedArgs.goal,
+            validatedArgs.window_size
           );
 
           await reportProgress({ progress: 3, total: 3 });

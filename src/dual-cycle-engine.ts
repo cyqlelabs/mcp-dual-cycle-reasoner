@@ -73,7 +73,8 @@ export class DualCycleEngine {
   async processTraceUpdate(
     lastAction: string,
     currentContext?: string,
-    goal?: string
+    goal?: string,
+    windowSize?: number
   ): Promise<{
     intervention_required: boolean;
     loop_detected?: LoopDetectionResult;
@@ -109,7 +110,7 @@ export class DualCycleEngine {
     );
 
     // METACOGNITIVE CYCLE - Phase 1: MONITOR
-    const loopDetection = this.monitorForLoops(this.currentTrace);
+    const loopDetection = this.monitorForLoops(this.currentTrace, windowSize ?? 10);
 
     if (!loopDetection.detected) {
       console.log(chalk.green('✅ No loops detected - cognitive cycle proceeding normally'));
@@ -207,9 +208,9 @@ export class DualCycleEngine {
    * METACOGNITIVE CYCLE - Phase 1: MONITOR
    * Uses the Sentinel to detect problematic patterns
    */
-  private monitorForLoops(trace: CognitiveTrace): LoopDetectionResult {
+  private monitorForLoops(trace: CognitiveTrace, windowSize: number = 10): LoopDetectionResult {
     const enrichedTrace = this.getEnrichedTrace();
-    return this.sentinel.detectLoop(enrichedTrace, 'hybrid');
+    return this.sentinel.detectLoop(enrichedTrace, 'hybrid', windowSize);
   }
 
   /**
