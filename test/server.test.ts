@@ -210,8 +210,7 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(result.loop_detected?.detected).toBe(true);
       expect(result.loop_detected?.confidence).toBeGreaterThan(0.5);
       expect(result.loop_detected?.details).toBeDefined();
-      expect(result.diagnosis).toBeDefined();
-      expect(result.recovery_plan).toBeDefined();
+      expect(result.explanation).toBeDefined();
     });
 
     it('should confirm complex scenario triggers state invariance detection', async () => {
@@ -313,8 +312,6 @@ describe('DualCycleEngine with Fixtures', () => {
         await engine.processTraceUpdate(action, trace.current_context, trace.goal);
       }
 
-      // Update recovery outcome
-      engine.updateRecoveryOutcome(true, 'Alternative navigation strategy worked');
 
       const status = engine.getMonitoringStatus();
       expect(status.intervention_count).toBeGreaterThan(0);
@@ -385,55 +382,6 @@ describe('DualCycleEngine with Fixtures', () => {
     });
   });
 
-  describe('Belief Revision Tests', () => {
-    it('should revise beliefs based on contradicting evidence', async () => {
-      const trace: CognitiveTrace = complexScenarioFixture.cognitive_trace;
-
-      const initialBeliefs = [
-        'Pricing information is on the homepage',
-        'No modal interactions are needed',
-        'All pricing details are visible without scrolling',
-      ];
-
-      const contradictingEvidence =
-        'Had to navigate to pricing page and open modal to see comparison';
-
-      const adjudicator = (engine as any).adjudicator;
-      const revision = await adjudicator.reviseBeliefs(
-        initialBeliefs,
-        contradictingEvidence,
-        trace
-      );
-
-      expect(revision).toBeDefined();
-      expect(revision.revised_beliefs).toBeDefined();
-      expect(revision.removed_beliefs).toBeDefined();
-      expect(revision.rationale).toBeDefined();
-      expect(revision.removed_beliefs.length).toBeGreaterThan(0);
-    });
-
-    it('should handle belief revision with semantic analysis', async () => {
-      const trace: CognitiveTrace = loopFixture.cognitive_trace;
-
-      const beliefs = [
-        'Download button is easily accessible',
-        'No scrolling is required',
-        'Page content is static',
-      ];
-
-      const evidence = 'Scrolled multiple times without finding the download button';
-
-      const adjudicator = (engine as any).adjudicator;
-      const revision = await adjudicator.reviseBeliefs(beliefs, evidence, trace);
-
-      expect(revision).toBeDefined();
-      expect(revision.revised_beliefs).toBeDefined();
-      expect(revision.rationale).toBeDefined();
-      if (revision.semantic_analysis) {
-        expect(revision.semantic_analysis.confidence_level).toBeDefined();
-      }
-    });
-  });
 
   describe('Configuration Tests', () => {
     it('should handle different detection thresholds', async () => {
@@ -523,11 +471,8 @@ describe('DualCycleEngine with Fixtures', () => {
 
       expect(result.intervention_required).toBe(true);
       expect(result.loop_detected?.detected).toBe(true);
-      expect(result.diagnosis).toBeDefined();
-      expect(result.recovery_plan).toBeDefined();
+      expect(result.explanation).toBeDefined();
 
-      // Update recovery outcome
-      engine.updateRecoveryOutcome(false, 'First recovery attempt failed');
 
       const status = engine.getMonitoringStatus();
       expect(status.intervention_count).toBe(1);

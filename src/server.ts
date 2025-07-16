@@ -6,9 +6,6 @@ import { DualCycleEngine } from './dual-cycle-engine.js';
 import {
   MonitorCognitiveTraceInputSchema,
   DetectLoopInputSchema,
-  DiagnoseFailureInputSchema,
-  ReviseBelifsInputSchema,
-  GenerateRecoveryPlanInputSchema,
   StoreExperienceInputSchema,
   RetrieveSimilarCasesInputSchema,
   CaseSchema,
@@ -22,14 +19,14 @@ import chalk from 'chalk';
  * MCP Server implementing the Dual-Cycle Metacognitive Reasoning Framework
  * Built with FastMCP for SSE transport support
  *
- * This server provides tools for autonomous agents to monitor their own cognition,
- * detect when they're stuck in loops, diagnose failures, and generate recovery plans.
+ * This server provides tools for autonomous agent cfs to monitor their own cognition,
+ * detect when they're stuck in loops, and learn from experience.
  *
  * Based on the framework described in DUAL-CYCLE.MD, this implements:
  * - Sentinel functions for loop detection (monitoring)
- * - Adjudicator functions for failure diagnosis and recovery (control)
+ * - Adjudicator functions for experience management (control)
  * - Case-based reasoning for learning from experience
- * - Belief revision for maintaining logical consistency
+ * - Statistical analysis for pattern recognition
  */
 
 class DualCycleReasonerServer {
@@ -45,14 +42,12 @@ class DualCycleReasonerServer {
 
 Key capabilities:
 - Monitor cognitive processes and detect when agents are stuck in loops
-- Diagnose failure causes using abductive reasoning
-- Generate recovery plans using case-based reasoning
-- Maintain belief consistency using AGM belief revision
+- Analyze action patterns and statistical anomalies
 - Learn from experience through case storage and retrieval
 
 The server follows a two-cycle architecture:
 1. Sentinel (monitoring): Detects loops and cognitive failures
-2. Adjudicator (control): Diagnoses problems and generates recovery plans
+2. Adjudicator (control): Stores and retrieves experience from similar cases
 
 Use this server to help autonomous agents become more self-aware and resilient.`,
 
@@ -137,13 +132,9 @@ Use this server to help autonomous agents become more self-aware and resilient.`
     this.addStopMonitoringTool();
     this.addProcessTraceUpdateTool();
     this.addDetectLoopTool();
-    this.addDiagnoseFailureTool();
-    this.addReviseBeliefsTool();
-    this.addGenerateRecoveryPlanTool();
     this.addStoreExperienceTool();
     this.addRetrieveSimilarCasesTool();
     this.addGetMonitoringStatusTool();
-    this.addUpdateRecoveryOutcomeTool();
     this.addResetEngineTool();
     this.addConfigureDetectionTool();
   }
@@ -360,277 +351,6 @@ Use this server to help autonomous agents become more self-aware and resilient.`
     });
   }
 
-  private addDiagnoseFailureTool(): void {
-    this.server.addTool({
-      name: 'diagnose_failure',
-      description: 'Diagnose the cause of a detected loop using abductive reasoning',
-      parameters: z.object({
-        loop_detected: z.boolean().describe(DESCRIPTIONS.LOOP_DETECTED),
-        loop_type: z
-          .enum(['action_repetition', 'state_invariance', 'progress_stagnation'])
-          .optional()
-          .describe(DESCRIPTIONS.LOOP_TYPE),
-        loop_confidence: z.number().describe(DESCRIPTIONS.LOOP_CONFIDENCE),
-        loop_details: z.string().describe(DESCRIPTIONS.LOOP_DETAILS),
-        actions_involved: z.array(z.string()).optional().describe(DESCRIPTIONS.ACTIONS_INVOLVED),
-        entropy_score: z.number().optional().describe(DESCRIPTIONS.ENTROPY_SCORE),
-        variance_score: z.number().optional().describe(DESCRIPTIONS.VARIANCE_SCORE),
-        trend_score: z.number().optional().describe(DESCRIPTIONS.TREND_SCORE),
-        cyclicity_score: z.number().optional().describe(DESCRIPTIONS.CYCLICITY_SCORE),
-        current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
-        goal: z.string().describe(DESCRIPTIONS.GOAL),
-      }),
-      annotations: {
-        title: 'Diagnose Failure Cause',
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: true,
-        openWorldHint: false,
-      },
-      execute: async (args, { log, reportProgress }) => {
-        try {
-          const validatedArgs = DiagnoseFailureInputSchema.parse(args);
-
-          log.info('Starting failure diagnosis', {
-            loopDetected: validatedArgs.loop_detected,
-            loopType: validatedArgs.loop_type,
-            confidence: validatedArgs.loop_confidence,
-          });
-
-          await reportProgress({ progress: 0, total: 3 });
-
-          const loop_result = {
-            detected: validatedArgs.loop_detected,
-            type: validatedArgs.loop_type,
-            confidence: validatedArgs.loop_confidence,
-            details: validatedArgs.loop_details,
-            actions_involved: validatedArgs.actions_involved,
-            statistical_metrics: {
-              entropy_score: validatedArgs.entropy_score,
-              variance_score: validatedArgs.variance_score,
-              trend_score: validatedArgs.trend_score,
-              cyclicity_score: validatedArgs.cyclicity_score,
-            },
-          };
-
-          await reportProgress({ progress: 1, total: 3 });
-
-          // Get current enriched trace (includes recent_actions) and update context/goal if provided
-          const enrichedTrace = this.engine.getEnrichedCurrentTrace();
-          const trace = {
-            ...enrichedTrace,
-            ...(validatedArgs.current_context && {
-              current_context: validatedArgs.current_context,
-            }),
-            ...(validatedArgs.goal && { goal: validatedArgs.goal }),
-          };
-
-          log.debug('Analyzing trace for failure diagnosis', {
-            actionsInvolved: validatedArgs.actions_involved,
-            statisticalMetrics: loop_result.statistical_metrics,
-          });
-
-          const adjudicator = (this.engine as any).adjudicator;
-          const result = await adjudicator.diagnoseFailure(loop_result, trace);
-
-          await reportProgress({ progress: 3, total: 3 });
-
-          log.info('Failure diagnosis completed', {
-            primaryHypothesis: result.primary_hypothesis,
-            confidence: result.confidence,
-            evidenceCount: result.evidence?.length || 0,
-          });
-
-          return JSON.stringify(result, null, 2);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          log.error('Failed to diagnose failure', { error: errorMessage });
-          throw new UserError(`Failed to diagnose failure: ${errorMessage}`);
-        }
-      },
-    });
-  }
-
-  private addReviseBeliefsTool(): void {
-    this.server.addTool({
-      name: 'revise_beliefs',
-      description: 'Revise agent beliefs using AGM belief revision principles',
-      parameters: z.object({
-        current_beliefs: z.array(z.string()).describe(DESCRIPTIONS.CURRENT_BELIEFS),
-        contradicting_evidence: z.string().describe(DESCRIPTIONS.CONTRADICTING_EVIDENCE),
-        goal: z.string().describe(DESCRIPTIONS.GOAL),
-      }),
-      annotations: {
-        title: 'Revise Agent Beliefs',
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-      execute: async (args, { log, reportProgress }) => {
-        try {
-          const validatedArgs = ReviseBelifsInputSchema.parse(args);
-
-          log.info('Starting belief revision', {
-            currentBeliefsCount: validatedArgs.current_beliefs.length,
-            contradictingEvidence: validatedArgs.contradicting_evidence,
-            goal: validatedArgs.goal,
-          });
-
-          await reportProgress({ progress: 0, total: 2 });
-
-          // Get current trace and update goal if provided
-          const currentTrace = this.engine.getCurrentTrace();
-          const trace = {
-            ...currentTrace,
-            ...(validatedArgs.goal && { goal: validatedArgs.goal }),
-          };
-
-          log.debug('Analyzing beliefs for revision', {
-            currentBeliefs: validatedArgs.current_beliefs,
-            traceAvailable: !!currentTrace,
-          });
-
-          const adjudicator = (this.engine as any).adjudicator;
-          const result = await adjudicator.reviseBeliefs(
-            validatedArgs.current_beliefs,
-            validatedArgs.contradicting_evidence,
-            trace
-          );
-
-          await reportProgress({ progress: 2, total: 2 });
-
-          log.info('Belief revision completed', {
-            revisedBeliefsCount: result.revised_beliefs?.length || 0,
-            retainedBeliefsCount: result.retained_beliefs?.length || 0,
-            removedBeliefsCount: result.removed_beliefs?.length || 0,
-          });
-
-          return JSON.stringify(result, null, 2);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          log.error('Failed to revise beliefs', { error: errorMessage });
-          throw new UserError(`Failed to revise beliefs: ${errorMessage}`);
-        }
-      },
-    });
-  }
-
-  private addGenerateRecoveryPlanTool(): void {
-    this.server.addTool({
-      name: 'generate_recovery_plan',
-      description: 'Generate a recovery plan using case-based reasoning',
-      parameters: z.object({
-        primary_hypothesis: z
-          .enum([
-            'element_state_error',
-            'page_state_error',
-            'selector_error',
-            'task_model_error',
-            'network_error',
-            'unknown',
-          ])
-          .describe(DESCRIPTIONS.PRIMARY_HYPOTHESIS),
-        diagnosis_confidence: z.number().describe(DESCRIPTIONS.DIAGNOSIS_CONFIDENCE),
-        evidence: z.array(z.string()).describe(DESCRIPTIONS.EVIDENCE),
-        suggested_actions: z.array(z.string()).describe(DESCRIPTIONS.SUGGESTED_ACTIONS),
-        sentiment_score: z.number().optional().describe(DESCRIPTIONS.SENTIMENT_SCORE),
-        confidence_factors: z
-          .array(z.string())
-          .optional()
-          .describe(DESCRIPTIONS.CONFIDENCE_FACTORS),
-        evidence_quality: z.number().optional().describe(DESCRIPTIONS.EVIDENCE_QUALITY),
-        last_action: z.string().describe(DESCRIPTIONS.LAST_ACTION),
-        current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
-        goal: z.string().describe(DESCRIPTIONS.GOAL),
-        available_patterns: z
-          .array(
-            z.enum([
-              'strategic_retreat',
-              'context_refresh',
-              'modality_switching',
-              'information_foraging',
-              'human_escalation',
-            ])
-          )
-          .optional()
-          .describe(DESCRIPTIONS.AVAILABLE_PATTERNS),
-      }),
-      annotations: {
-        title: 'Generate Recovery Plan',
-        readOnlyHint: true,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-      execute: async (args, { log, reportProgress }) => {
-        try {
-          const validatedArgs = GenerateRecoveryPlanInputSchema.parse(args);
-
-          log.info('Starting recovery plan generation', {
-            primaryHypothesis: validatedArgs.primary_hypothesis,
-            confidence: validatedArgs.diagnosis_confidence,
-            evidenceCount: validatedArgs.evidence.length,
-            availablePatterns: validatedArgs.available_patterns,
-          });
-
-          await reportProgress({ progress: 0, total: 3 });
-
-          const diagnosis = {
-            primary_hypothesis: validatedArgs.primary_hypothesis,
-            confidence: validatedArgs.diagnosis_confidence,
-            evidence: validatedArgs.evidence,
-            suggested_actions: validatedArgs.suggested_actions,
-            semantic_analysis: {
-              sentiment_score: validatedArgs.sentiment_score,
-              confidence_factors: validatedArgs.confidence_factors,
-              evidence_quality: validatedArgs.evidence_quality,
-            },
-          };
-
-          await reportProgress({ progress: 1, total: 3 });
-
-          // Get current trace and update context/goal if provided
-          const currentTrace = this.engine.getCurrentTrace();
-          const trace = {
-            ...currentTrace,
-            ...(validatedArgs.current_context && {
-              current_context: validatedArgs.current_context,
-            }),
-            ...(validatedArgs.goal && { goal: validatedArgs.goal }),
-          };
-
-          log.debug('Generating recovery plan with case-based reasoning', {
-            context: validatedArgs.current_context,
-            suggestedActionsCount: validatedArgs.suggested_actions.length,
-            evidenceCount: validatedArgs.evidence.length,
-          });
-
-          const adjudicator = (this.engine as any).adjudicator;
-          const result = adjudicator.generateRecoveryPlan(
-            diagnosis,
-            trace,
-            validatedArgs.available_patterns
-          );
-
-          await reportProgress({ progress: 3, total: 3 });
-
-          log.info('Recovery plan generated', {
-            strategyPattern: result.strategy_pattern,
-            actionsCount: result.actions?.length || 0,
-            confidence: result.confidence,
-            reasoningApproach: result.reasoning_approach,
-          });
-
-          return JSON.stringify(result, null, 2);
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          log.error('Failed to generate recovery plan', { error: errorMessage });
-          throw new UserError(`Failed to generate recovery plan: ${errorMessage}`);
-        }
-      },
-    });
-  }
 
   private addStoreExperienceTool(): void {
     this.server.addTool({
@@ -766,43 +486,6 @@ Use this server to help autonomous agents become more self-aware and resilient.`
     });
   }
 
-  private addUpdateRecoveryOutcomeTool(): void {
-    this.server.addTool({
-      name: 'update_recovery_outcome',
-      description: 'Update the outcome of a recovery plan for learning',
-      parameters: z.object({
-        successful: z.boolean().describe(DESCRIPTIONS.SUCCESSFUL),
-        explanation: z.string().describe(DESCRIPTIONS.EXPLANATION),
-      }),
-      annotations: {
-        title: 'Update Recovery Outcome',
-        readOnlyHint: false,
-        destructiveHint: false,
-        idempotentHint: false,
-        openWorldHint: false,
-      },
-      execute: async (args, { log }) => {
-        try {
-          log.info('Updating recovery outcome', {
-            successful: args.successful,
-            explanation: args.explanation,
-          });
-
-          this.engine.updateRecoveryOutcome(args.successful, args.explanation);
-
-          log.info('Recovery outcome updated successfully', {
-            outcome: args.successful ? 'SUCCESS' : 'FAILURE',
-          });
-
-          return `✅ Recovery outcome updated: ${args.successful ? 'SUCCESS' : 'FAILURE'} - ${args.explanation}`;
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          log.error('Failed to update recovery outcome', { error: errorMessage });
-          throw new UserError(`Failed to update recovery outcome: ${errorMessage}`);
-        }
-      },
-    });
-  }
 
   private addResetEngineTool(): void {
     this.server.addTool({

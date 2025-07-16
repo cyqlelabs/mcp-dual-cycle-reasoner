@@ -3,7 +3,6 @@ import {
   LoopDetectionResult,
   DiagnosisResult,
   FailureHypothesis,
-  BeliefRevisionResult,
   RecoveryPlan,
   RecoveryPattern,
   Case,
@@ -17,49 +16,6 @@ const { SentimentAnalyzer, PorterStemmer, WordTokenizer } = natural;
 
 export class Adjudicator {
   private caseBase: Case[] = [];
-
-  /**
-   * Strategy 4: Belief Revision for Strategy Invalidation
-   * Implements AGM belief revision principles to maintain logical consistency
-   */
-  async reviseBeliefs(
-    currentBeliefs: string[],
-    contradictingEvidence: string,
-    _trace: CognitiveTrace & { recent_actions: string[] }
-  ): Promise<BeliefRevisionResult> {
-    const revisedBeliefs: string[] = [];
-    const removedBeliefs: string[] = [];
-
-    // For simplified approach, keep non-contradicted beliefs and add new insight
-    for (const belief of currentBeliefs) {
-      const contradicts = await this.doesEvidenceContradictBelief(belief, contradictingEvidence);
-      if (!contradicts) {
-        revisedBeliefs.push(belief);
-      } else {
-        removedBeliefs.push(belief);
-      }
-    }
-
-    // Add new belief based on evidence
-    const newBelief = `Current strategy ineffective: ${contradictingEvidence}`;
-    revisedBeliefs.push(newBelief);
-
-    const rationale = `Removed ${removedBeliefs.length} contradicted beliefs and added insight about strategy failure`;
-
-    return {
-      revised_beliefs: revisedBeliefs,
-      removed_beliefs: removedBeliefs,
-      rationale,
-    };
-  }
-
-  /**
-   * Enhanced semantic belief contradiction detection using NLI transformers
-   */
-  private async doesEvidenceContradictBelief(belief: string, evidence: string): Promise<boolean> {
-    const result = await semanticAnalyzer.assessBeliefContradiction(belief, evidence);
-    return result.contradicts;
-  }
 
   /**
    * Strategy 5: Abductive Reasoning for Failure Diagnosis

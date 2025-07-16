@@ -180,8 +180,7 @@ describe('Live MCP Server Integration', () => {
       expect(result.loop_detected?.type).toMatch(
         /state_invariance|action_repetition|progress_stagnation/
       );
-      expect(result.diagnosis).toBeDefined();
-      expect(result.recovery_plan).toBeDefined();
+      expect(result.explanation).toBeDefined();
 
       // Additional step: Call detect_loop to verify accumulated actions
       const detectResult = await mcpClient.callTool({
@@ -207,47 +206,9 @@ describe('Live MCP Server Integration', () => {
       expect(loopResult.confidence).toBeGreaterThan(0);
       expect(loopResult.details).toBeDefined();
 
-      // Update recovery outcome
-      const updateResult = await mcpClient.callTool({
-        name: 'update_recovery_outcome',
-        arguments: {
-          successful: true,
-          explanation: 'Switched to alternative navigation strategy and found download button',
-        },
-      });
-
-      expect((updateResult as any).content[0].text).toContain(
-        '✅ Recovery outcome updated: SUCCESS'
-      );
     }, 15000);
   });
 
-  describe('Belief Revision Live Tests', () => {
-    it('should revise beliefs in live environment', async () => {
-      const trace = complexScenarioFixture.cognitive_trace;
-
-      const reviseResult = await mcpClient.callTool({
-        name: 'revise_beliefs',
-        arguments: {
-          current_beliefs: [
-            'Pricing information is on the homepage',
-            'No modal interactions are needed',
-            'All pricing details are visible without scrolling',
-          ],
-          contradicting_evidence:
-            'Had to navigate to pricing page and open modal to see comparison',
-          goal: trace.goal,
-        },
-      });
-
-      const revision = JSON.parse((reviseResult as any).content[0].text);
-      expect(revision.revised_beliefs).toBeDefined();
-      expect(revision.removed_beliefs).toBeDefined();
-      expect(revision.rationale).toBeDefined();
-      // Check that beliefs were actually revised (either added or removed)
-      expect(revision.revised_beliefs.length + revision.removed_beliefs.length).toBeGreaterThan(0);
-    });
-  });
 
   describe('Configuration Live Tests', () => {
     it('should configure detection parameters in live environment', async () => {

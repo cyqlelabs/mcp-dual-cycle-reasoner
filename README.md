@@ -3,11 +3,12 @@
 [![CI](https://github.com/cyqlelabs/mcp-dual-cycle-reasoner/actions/workflows/ci.yml/badge.svg)](https://github.com/cyqlelabs/mcp-dual-cycle-reasoner/actions/workflows/ci.yml)
 
 A Model Context Protocol (MCP) server implementing the **Dual-Cycle Metacognitive Reasoning Framework** for autonomous agents.
+This tool empowers Agents with greater self-awareness and reliability through intelligent loop detection.
 
 ## Key Features
 
 - 📊 **Advanced Statistical Analysis** - Entropy-based anomaly detection and time series analysis
-- 🧠 **Semantic Text Processing** - NLP-powered belief revision and case similarity
+- 🧠 **Semantic Text Processing** - NLP-powered case similarity analysis
 - 🎯 **Multi-Strategy Detection** - Statistical, pattern-based, and hybrid loop detection
 - 📈 **Time Series Analysis** - Trend detection and cyclical pattern recognition
 - 🔧 **Configurable Detection** - Domain-specific thresholds and progress indicators
@@ -74,8 +75,7 @@ Initialize metacognitive monitoring of an agent's cognitive process.
 
 ```typescript
 {
-  goal: string                    // Current goal being pursued
-  initial_beliefs?: string[]      // Initial beliefs about the task and environment (default: [])
+  goal: string; // Current goal being pursued
 }
 ```
 
@@ -96,7 +96,7 @@ Main monitoring function - processes cognitive trace updates from the agent.
 }
 ```
 
-**Output:** JSON object with intervention details including loop detection, diagnosis, recovery plan, and revised beliefs
+**Output:** JSON object with intervention details including loop detection and recovery recommendations
 
 #### `stop_monitoring`
 
@@ -141,89 +141,6 @@ Configure loop detection parameters and domain-specific progress indicators.
 ```
 
 **Output:** Configuration confirmation with current settings
-
-### Failure Analysis Tools
-
-#### `diagnose_failure`
-
-Diagnose the cause of a detected loop using abductive reasoning.
-
-**Input Schema:**
-
-```typescript
-{
-  loop_detected: boolean                   // Whether a loop was detected
-  loop_type?: "action_repetition" | "state_invariance" | "progress_stagnation"  // Type of loop detected
-  loop_confidence: number                  // Confidence in loop detection
-  loop_details: string                     // Details about the detected loop
-  actions_involved?: string[]              // Actions involved in the loop
-  entropy_score?: number                   // Statistical entropy score
-  variance_score?: number                  // Statistical variance score
-  trend_score?: number                     // Statistical trend score
-  cyclicity_score?: number                 // Statistical cyclicity score
-  current_context?: string                 // Current environment context or state
-  goal: string                             // Current goal being pursued
-}
-```
-
-**Output:** Diagnosis with primary hypothesis, confidence, evidence, and suggested actions
-
-#### `revise_beliefs`
-
-Revise agent beliefs using AGM belief revision principles.
-
-**Input Schema:**
-
-```typescript
-{
-  current_beliefs: string[]        // Current beliefs as simple strings
-  contradicting_evidence: string   // Evidence that contradicts current beliefs
-  goal: string                     // Current goal being pursued
-}
-```
-
-**Output:** Belief revision result with revised beliefs, removed beliefs, and rationale
-
-### Recovery Tools
-
-#### `generate_recovery_plan`
-
-Generate a recovery plan using case-based reasoning.
-
-**Input Schema:**
-
-```typescript
-{
-  primary_hypothesis: "element_state_error" | "page_state_error" | "selector_error" | "task_model_error" | "network_error" | "unknown"  // Primary hypothesis from diagnosis
-  diagnosis_confidence: number             // Confidence in diagnosis
-  evidence: string[]                       // Evidence supporting the diagnosis
-  suggested_actions: string[]              // Suggested actions from diagnosis
-  sentiment_score?: number                 // Semantic sentiment score
-  confidence_factors?: string[]            // Factors affecting confidence
-  evidence_quality?: number                // Quality of evidence
-  last_action: string                      // Latest action name to be added to the accumulated action history
-  current_context?: string                 // Current environment context or state
-  goal: string                             // Current goal being pursued
-  available_patterns?: ("strategic_retreat" | "context_refresh" | "modality_switching" | "information_foraging" | "human_escalation")[]  // Available recovery patterns
-}
-```
-
-**Output:** Recovery plan with pattern, actions, rationale, and expected outcome
-
-#### `update_recovery_outcome`
-
-Update the outcome of a recovery plan for learning.
-
-**Input Schema:**
-
-```typescript
-{
-  successful: boolean; // Whether the recovery was successful
-  explanation: string; // Explanation of the outcome
-}
-```
-
-**Output:** Success confirmation message
 
 ### Experience Management
 
@@ -283,16 +200,6 @@ Reset the dual-cycle engine state.
 - **Enhanced Action Trace Analysis**: Entropy-based anomaly detection and autocorrelation analysis
 - **Advanced State Invariance Tracking**: MD5 hash-based state fingerprinting and statistical similarity measurement
 - **Multi-Method Detection**: Statistical, pattern-based, and hybrid approaches with configurable thresholds
-
-### Recovery Patterns
-
-The system implements five recovery patterns:
-
-1. **Strategic Retreat**: Backtrack to known good state
-2. **Context Refresh**: Clear state
-3. **Modality Switching**: Switch from DOM to visual interaction
-4. **Information Foraging**: Explore page structure systematically
-5. **Human Escalation**: Request human intervention
 
 ## Research Applications
 

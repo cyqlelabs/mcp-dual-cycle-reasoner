@@ -1,15 +1,6 @@
 import { Sentinel } from './sentinel.js';
 import { Adjudicator } from './adjudicator.js';
-import {
-  CognitiveTrace,
-  LoopDetectionResult,
-  DiagnosisResult,
-  RecoveryPlan,
-  BeliefRevisionResult,
-  Case,
-  SentinelConfig,
-} from './types.js';
-import { v4 as uuidv4 } from 'uuid';
+import { CognitiveTrace, LoopDetectionResult, Case, SentinelConfig } from './types.js';
 import chalk from 'chalk';
 
 /**
@@ -78,9 +69,6 @@ export class DualCycleEngine {
   ): Promise<{
     intervention_required: boolean;
     loop_detected?: LoopDetectionResult;
-    diagnosis?: DiagnosisResult;
-    recovery_plan?: RecoveryPlan;
-    revised_beliefs?: BeliefRevisionResult;
     explanation?: string;
   }> {
     if (!this.isMonitoring) {
@@ -127,52 +115,15 @@ export class DualCycleEngine {
     );
     console.log(chalk.yellow(`   Details: ${loopDetection.details}`));
 
-    // METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
-    const diagnosis = await this.interpretFailure(loopDetection, this.getEnrichedTrace());
-    console.log(
-      chalk.red(
-        `🔍 Diagnosis: ${diagnosis.primary_hypothesis} (confidence: ${(diagnosis.confidence * 100).toFixed(1)}%)`
-      )
-    );
-    console.log(chalk.red(`   Evidence: ${diagnosis.evidence.join('; ')}`));
-
-    // METACOGNITIVE CYCLE - Phase 3: PLAN (Meta-Level)
-    const recoveryPlan = this.planRecovery(diagnosis, this.getEnrichedTrace());
-    console.log(chalk.blue(`🛠️  Recovery plan: ${recoveryPlan.pattern}`));
-    console.log(chalk.blue(`   Rationale: ${recoveryPlan.rationale}`));
-
-    // METACOGNITIVE CYCLE - Phase 4: CONTROL (Meta-Level)
-    const beliefRevision = await this.controlCognition(
-      loopDetection,
-      diagnosis,
-      this.getEnrichedTrace()
-    );
-    console.log(
-      chalk.magenta(
-        `🧠 Beliefs revised: ${beliefRevision.revised_beliefs.length} beliefs, ${beliefRevision.removed_beliefs.length} removed`
-      )
-    );
-
-    // Store this experience for future learning
-    this.storeExperience(loopDetection, diagnosis, recoveryPlan, this.currentTrace);
-
     this.interventionCount++;
 
-    const explanation = this.generateInterventionExplanation(
-      loopDetection,
-      diagnosis,
-      recoveryPlan,
-      beliefRevision
-    );
+    const explanation = this.generateInterventionExplanation(loopDetection);
 
     console.log(chalk.cyan(`\n💡 Intervention #${this.interventionCount}: ${explanation}`));
 
     return {
       intervention_required: true,
       loop_detected: loopDetection,
-      diagnosis,
-      recovery_plan: recoveryPlan,
-      revised_beliefs: beliefRevision,
       explanation,
     };
   }
@@ -214,82 +165,14 @@ export class DualCycleEngine {
   }
 
   /**
-   * METACOGNITIVE CYCLE - Phase 2: INTERPRET/DETECT
-   * Uses the Adjudicator to diagnose the failure
-   */
-  private async interpretFailure(
-    loopResult: LoopDetectionResult,
-    trace: CognitiveTrace & { recent_actions: string[] }
-  ): Promise<DiagnosisResult> {
-    return await this.adjudicator.diagnoseFailure(loopResult, trace);
-  }
-
-  /**
-   * METACOGNITIVE CYCLE - Phase 3: PLAN (Meta-Level)
-   * Uses the Adjudicator to generate a recovery plan
-   */
-  private planRecovery(
-    diagnosis: DiagnosisResult,
-    trace: CognitiveTrace & { recent_actions: string[] }
-  ): RecoveryPlan {
-    return this.adjudicator.generateRecoveryPlan(diagnosis, trace);
-  }
-
-  /**
-   * METACOGNITIVE CYCLE - Phase 4: CONTROL (Meta-Level)
-   * Revises beliefs and prepares cognitive control signals
-   */
-  private async controlCognition(
-    loopResult: LoopDetectionResult,
-    diagnosis: DiagnosisResult,
-    trace: CognitiveTrace & { recent_actions: string[] }
-  ): Promise<BeliefRevisionResult> {
-    const contradictingEvidence = `Loop detected: ${loopResult.type}. Diagnosis: ${diagnosis.primary_hypothesis}. Current strategy is ineffective.`;
-
-    // For simplified traces, we'll use empty beliefs array as default
-    const currentBeliefs: string[] = [];
-
-    return await this.adjudicator.reviseBeliefs(currentBeliefs, contradictingEvidence, trace);
-  }
-
-  /**
-   * Store the experience for case-based reasoning
-   */
-  private storeExperience(
-    loopResult: LoopDetectionResult,
-    diagnosis: DiagnosisResult,
-    recoveryPlan: RecoveryPlan,
-    trace: CognitiveTrace
-  ): void {
-    const experience: Case = {
-      id: uuidv4(),
-      problem_description: `${loopResult.type} loop detected: ${diagnosis.primary_hypothesis} in context: ${this.extractContextSummary(trace)}`,
-      solution: `Apply ${recoveryPlan.pattern} strategy: ${recoveryPlan.rationale}`,
-      outcome: false, // Will be updated when outcome is known
-      timestamp: Date.now(),
-    };
-
-    this.adjudicator.storeExperience(experience);
-  }
-
-  /**
    * Generate a human-readable explanation of the intervention
    */
-  private generateInterventionExplanation(
-    loopResult: LoopDetectionResult,
-    diagnosis: DiagnosisResult,
-    recoveryPlan: RecoveryPlan,
-    beliefRevision: BeliefRevisionResult
-  ): string {
+  private generateInterventionExplanation(loopResult: LoopDetectionResult): string {
     const loopType = loopResult.type?.replace('_', ' ') || 'unknown';
-    const hypothesis = diagnosis.primary_hypothesis.replace('_', ' ');
-    const pattern = recoveryPlan.pattern.replace('_', ' ');
 
     return (
       `Detected ${loopType} loop (${(loopResult.confidence * 100).toFixed(0)}% confidence). ` +
-      `Diagnosed as ${hypothesis} issue. ` +
-      `Applying ${pattern} recovery strategy. ` +
-      `Revised ${beliefRevision.revised_beliefs.length} beliefs to maintain consistency.`
+      `Intervention required to break the loop.`
     );
   }
 
@@ -324,18 +207,6 @@ export class DualCycleEngine {
     };
   }
 
-  /**
-   * Update the outcome of a previously generated recovery plan
-   */
-  updateRecoveryOutcome(successful: boolean, explanation: string): void {
-    // In a full implementation, this would update the most recent case
-    // For now, we'll just log it
-    console.log(
-      chalk.cyan(
-        `📝 Recovery outcome updated: ${successful ? 'SUCCESS' : 'FAILURE'} - ${explanation}`
-      )
-    );
-  }
 
   /**
    * Reset the engine state (useful for testing or new sessions)

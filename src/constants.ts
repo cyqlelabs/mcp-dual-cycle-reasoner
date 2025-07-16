@@ -47,9 +47,6 @@ export const DESCRIPTIONS = {
   WINDOW_SIZE: 'Size of the monitoring window',
   MAX_RESULTS: 'Maximum number of cases to return',
 
-  // Recovery outcome
-  SUCCESSFUL: 'Whether the recovery was successful',
-  EXPLANATION: 'Explanation of the outcome',
 
   // Configuration parameters
   PROGRESS_INDICATORS:

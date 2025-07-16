@@ -130,20 +130,6 @@ export const CaseSchema = z.object({
     .optional(),
 });
 
-// Belief Revision Types
-export const BeliefRevisionResultSchema = z.object({
-  revised_beliefs: z.array(z.string()).describe(DESCRIPTIONS.REVISED_BELIEFS),
-  removed_beliefs: z.array(z.string()).describe(DESCRIPTIONS.REMOVED_BELIEFS),
-  rationale: z.string().describe(DESCRIPTIONS.RATIONALE),
-  semantic_analysis: z
-    .object({
-      contradiction_score: z.number().optional(),
-      sentiment_shift: z.number().optional(),
-      confidence_level: z.number().optional(),
-    })
-    .optional(),
-});
-
 // MCP Tool Input/Output Types - Flattened for single-level parameters
 export const MonitorCognitiveTraceInputSchema = z.object({
   last_action: z.string().describe(DESCRIPTIONS.LAST_ACTION),
@@ -169,12 +155,6 @@ export const DiagnoseFailureInputSchema = z.object({
   trend_score: z.number().optional().describe(DESCRIPTIONS.TREND_SCORE),
   cyclicity_score: z.number().optional().describe(DESCRIPTIONS.CYCLICITY_SCORE),
   current_context: z.string().optional().describe(DESCRIPTIONS.CURRENT_CONTEXT),
-  goal: z.string().describe(DESCRIPTIONS.GOAL),
-});
-
-export const ReviseBelifsInputSchema = z.object({
-  current_beliefs: z.array(z.string()).describe(DESCRIPTIONS.CURRENT_BELIEFS),
-  contradicting_evidence: z.string().describe(DESCRIPTIONS.CONTRADICTING_EVIDENCE),
   goal: z.string().describe(DESCRIPTIONS.GOAL),
 });
 
@@ -216,5 +196,4 @@ export type DiagnosisResult = z.infer<typeof DiagnosisResultSchema>;
 export type RecoveryPattern = z.infer<typeof RecoveryPatternSchema>;
 export type RecoveryPlan = z.infer<typeof RecoveryPlanSchema>;
 export type Case = z.infer<typeof CaseSchema>;
-export type BeliefRevisionResult = z.infer<typeof BeliefRevisionResultSchema>;
 export type SentinelConfig = z.infer<typeof SentinelConfigSchema>;
