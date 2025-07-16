@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach } from '@jest/globals';
-import { spawn, ChildProcess } from 'child_process';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { ChildProcess } from 'child_process';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { MCPClient } from 'mcp-client';
@@ -37,7 +37,7 @@ describe('Live MCP Server Integration', () => {
     await mcpClient.connect({
       type: 'stdio',
       command: 'node',
-      args: ['build/index.js'],
+      args: ['build/server.js', '--stdio'],
     });
 
     serverReady = true;
@@ -371,26 +371,37 @@ describe('Live MCP Server Integration', () => {
 
   describe('Error Handling Live Tests', () => {
     it('should handle invalid requests gracefully', async () => {
-      // Test invalid tool name
-      const invalidResult = await mcpClient.callTool({
-        name: 'nonexistent_tool',
-        arguments: {},
-      });
-
-      expect((invalidResult as any).content[0].text).toContain('❌ Error executing');
-      expect((invalidResult as any).content[0].text).toContain('Unknown tool');
+      // Test invalid tool name - should throw McpError
+      try {
+        await mcpClient.callTool({
+          name: 'nonexistent_tool',
+          arguments: {},
+        });
+        fail('Expected McpError to be thrown');
+      } catch (error: any) {
+        expect(error.name).toBe('McpError');
+        expect(error.message).toContain('Unknown tool');
+        expect(error.message).toContain('nonexistent_tool');
+      }
     });
 
     it('should handle malformed trace data', async () => {
-      const malformedResult = await mcpClient.callTool({
-        name: 'process_trace_update',
-        arguments: {
-          // Missing required fields - last_action and goal are required
-          current_context: 'test',
-        },
-      });
-
-      expect((malformedResult as any).content[0].text).toContain('❌ Error executing');
+      // Test malformed parameters - should throw McpError
+      try {
+        await mcpClient.callTool({
+          name: 'process_trace_update',
+          arguments: {
+            // Missing required fields - last_action and goal are required
+            current_context: 'test',
+          },
+        });
+        fail('Expected McpError to be thrown');
+      } catch (error: any) {
+        expect(error.name).toBe('McpError');
+        expect(error.message).toContain('parameter validation failed');
+        expect(error.message).toContain('last_action: Required');
+        expect(error.message).toContain('goal: Required');
+      }
     });
   });
 });
