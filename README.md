@@ -35,7 +35,7 @@ npm run build
   "mcpServers": {
     "dual-cycle-reasoner": {
       "command": "node",
-      "args": ["/path/to/mcp-dual-cycle-reasoner/build/index.js"]
+      "args": ["/path/to/mcp-dual-cycle-reasoner/build/index.js"] // Add --stdio for stdio transport
     }
   }
 }
@@ -50,7 +50,7 @@ Add to your Claude Desktop MCP configuration:
   "mcpServers": {
     "dual-cycle-reasoner": {
       "command": "npx",
-      "args": ["@cyqlelabs/mcp-dual-cycle-reasoner"]
+      "args": ["@cyqlelabs/mcp-dual-cycle-reasoner"] // Add --stdio for stdio transport
     }
   }
 }
