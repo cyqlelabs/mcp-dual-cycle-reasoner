@@ -281,9 +281,11 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(loopResult.detected).toBe(true);
       expect(loopResult.type).toBe('progress_stagnation');
       expect(loopResult.details).toContain('diversity');
-      if (loopResult.actions_involved) {
-        expect(loopResult.actions_involved.length).toBeGreaterThan(0);
-      }
+      expect(loopResult.actions_involved).toBeDefined();
+      expect(loopResult.actions_involved!.length).toBeGreaterThan(0);
+      expect(loopResult.actions_involved).toEqual(
+        expect.arrayContaining(['scroll_down', 'scroll_up'])
+      );
     });
 
     it('should detect loop and retrieve similar cases for recovery', async () => {

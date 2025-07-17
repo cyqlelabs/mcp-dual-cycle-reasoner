@@ -276,7 +276,16 @@ await process_trace_update({
   current_context: 'registration_form',
   goal: 'Complete user registration process on website',
 });
-// Returns: { intervention_required: true, loop_detected: { type: "action_repetition", confidence: 0.85 } }
+// Returns: {
+//   intervention_required: true,
+//   loop_detected: {
+//     detected: true,
+//     type: "action_repetition",
+//     confidence: 0.85,
+//     details: "Loop detected via parameter_repetition: 57% anomaly score...",
+//     actions_involved: ["click_submit_button"]
+//   }
+// }
 ```
 
 ### 3. Storing Experience Cases

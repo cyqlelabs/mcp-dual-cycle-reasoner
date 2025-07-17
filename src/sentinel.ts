@@ -180,12 +180,20 @@ export class Sentinel {
         { method: '', score: 0 }
       );
 
+      // Identify specific actions involved in the loop based on dominant method
+      const specificActionsInvolved = this.getActionsInvolvedInLoop(
+        dominantMethod.method,
+        recentActions,
+        semanticClusters,
+        actionParams
+      );
+
       return {
         detected: true,
         type: 'action_repetition',
         confidence: Math.min(0.95, combinedAnomalyScore + 0.1),
-        details: `Loop detected via ${dominantMethod.method}: ${(combinedAnomalyScore * 100).toFixed(1)}% anomaly score. Semantic: ${(anomalyScores.semantic_repetition * 100).toFixed(1)}%, Parameter: ${(anomalyScores.parameter_repetition * 100).toFixed(1)}%, Exact: ${(anomalyScores.exact_repetition * 100).toFixed(1)}%, Cyclical: ${(anomalyScores.cyclical_pattern * 100).toFixed(1)}%`,
-        actions_involved: Array.from(uniqueActions),
+        details: `Loop detected via ${dominantMethod.method}: ${(combinedAnomalyScore * 100).toFixed(1)}% anomaly score. Semantic: ${(anomalyScores.semantic_repetition * 100).toFixed(1)}%, Parameter: ${(anomalyScores.parameter_repetition * 100).toFixed(1)}%, Exact: ${(anomalyScores.exact_repetition * 100).toFixed(1)}%, Cyclical: ${(anomalyScores.cyclical_pattern * 100).toFixed(1)}% (${specificActionsInvolved.length}/${recentActions.length} methods agreed)`,
+        actions_involved: specificActionsInvolved,
         statistical_metrics: {
           entropy_score: anomalyScores.statistical_anomaly,
           variance_score: anomalyScores.parameter_repetition,
@@ -265,22 +273,47 @@ export class Sentinel {
 
     if (totalSimilarStates >= threshold) {
       const confidence = Math.min(0.95, 0.7 + (totalSimilarStates - threshold) * 0.1);
+
+      // Get actions that led to state revisitation (recent actions that brought us back to similar state)
+      const recentActions = trace.recent_actions.slice(-windowSize);
+      const actionCounts = new Map<string, number>();
+      recentActions.forEach((action) => {
+        actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
+      });
+
+      const stateInvarianceActions = Array.from(actionCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([action]) => action);
+
       return {
         detected: true,
         type: 'state_invariance',
         confidence,
         details: `State revisitation detected: ${totalSimilarStates} similar states found (${exactOccurrences} exact, ${semanticSimilarStates} semantic). Features: ${stateFeatures.slice(0, 3).join(', ')}`,
+        actions_involved: stateInvarianceActions,
       };
     }
 
     // Check for gradual state convergence (states becoming more similar over time)
     const convergenceScore = this.detectStateConvergence(stateFeatures);
     if (convergenceScore > 0.7) {
+      // Get actions involved in state convergence (recent actions)
+      const recentActions = trace.recent_actions.slice(-windowSize);
+      const actionCounts = new Map<string, number>();
+      recentActions.forEach((action) => {
+        actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
+      });
+
+      const convergenceActions = Array.from(actionCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([action]) => action);
+
       return {
         detected: true,
         type: 'state_invariance',
         confidence: 0.8,
         details: `State convergence detected: ${(convergenceScore * 100).toFixed(1)}% convergence score indicating minimal progress`,
+        actions_involved: convergenceActions,
       };
     }
 
@@ -317,11 +350,22 @@ export class Sentinel {
 
       // Low diversity suggests repetitive behavior
       if (diversityRatio < 0.4 && recentWindow.length >= 4) {
+        // Get most frequent actions in the window
+        const actionCounts = new Map<string, number>();
+        recentWindow.forEach((action) => {
+          actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
+        });
+
+        const lowDiversityActions = Array.from(actionCounts.entries())
+          .filter(([, count]) => count > 1)
+          .map(([action]) => action);
+
         return {
           detected: true,
           type: 'progress_stagnation',
           confidence: 0.8,
           details: `Low action diversity detected: ${(diversityRatio * 100).toFixed(1)}% unique actions in recent window`,
+          actions_involved: lowDiversityActions,
         };
       }
     }
@@ -343,11 +387,23 @@ export class Sentinel {
       const confidence = Math.min(0.95, 0.6 + stagnationScore * 0.3);
       const details = `Advanced stagnation detected: Stagnation=${(stagnationScore * 100).toFixed(1)}%, Trend=${(timeSeriesAnalysis.trendScore * 100).toFixed(1)}%, Cyclicity=${(timeSeriesAnalysis.cyclicityScore * 100).toFixed(1)}%, Progress rate=${progressRate.toFixed(3)}`;
 
+      // Get actions involved in stagnation (most frequent actions)
+      const recentActions = trace.recent_actions.slice(-windowSize);
+      const actionCounts = new Map<string, number>();
+      recentActions.forEach((action) => {
+        actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
+      });
+
+      const stagnationActions = Array.from(actionCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([action]) => action);
+
       return {
         detected: true,
         type: 'progress_stagnation',
         confidence,
         details,
+        actions_involved: stagnationActions,
       };
     }
 
@@ -578,6 +634,94 @@ export class Sentinel {
    */
   reset(): void {
     this.stateHistory = [];
+  }
+
+  /**
+   * Identify specific actions involved in the loop based on dominant detection method
+   */
+  private getActionsInvolvedInLoop(
+    dominantMethod: string,
+    recentActions: string[],
+    semanticClusters: string[][],
+    actionParams: { name: string; params: string[] }[]
+  ): string[] {
+    switch (dominantMethod) {
+      case 'semantic_repetition':
+        // Return actions from the largest semantic cluster (most repeated semantic actions)
+        const largestCluster = semanticClusters.reduce(
+          (max, cluster) => (cluster.length > max.length ? cluster : max),
+          []
+        );
+        return largestCluster.length > 1 ? [...new Set(largestCluster)] : [];
+
+      case 'parameter_repetition':
+        // Return actions with repeated parameters using existing logic
+        return this.getParameterRepeatedActions(actionParams, recentActions);
+
+      case 'exact_repetition':
+        // Return actions that appear multiple times exactly
+        const actionCounts = new Map<string, number>();
+        recentActions.forEach((action) => {
+          actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
+        });
+        return [...new Set(recentActions.filter((action) => actionCounts.get(action)! > 1))];
+
+      case 'cyclical_pattern':
+      case 'oscillation_pattern':
+      case 'alternating_pattern':
+        // For pattern-based detection, return actions from the most frequent semantic cluster
+        const dominantCluster = semanticClusters.reduce(
+          (max, cluster) => (cluster.length > max.length ? cluster : max),
+          []
+        );
+        return dominantCluster.length > 1 ? [...new Set(dominantCluster)] : [];
+
+      default:
+        // Fallback: return actions from largest semantic cluster
+        const defaultCluster = semanticClusters.reduce(
+          (max, cluster) => (cluster.length > max.length ? cluster : max),
+          []
+        );
+        return defaultCluster.length > 1 ? [...new Set(defaultCluster)] : [];
+    }
+  }
+
+  /**
+   * Get actions with repeated parameters by leveraging existing parameter detection logic
+   */
+  private getParameterRepeatedActions(
+    actionParams: { name: string; params: string[] }[],
+    recentActions: string[]
+  ): string[] {
+    const actionGroups = new Map<string, number[]>();
+
+    // Group action indices by name
+    actionParams.forEach(({ name }, index) => {
+      if (!actionGroups.has(name)) actionGroups.set(name, []);
+      actionGroups.get(name)!.push(index);
+    });
+
+    const repeatedActions: string[] = [];
+
+    // For each action group, find parameters with high similarity
+    for (const [, indices] of actionGroups) {
+      if (indices.length < 2) continue;
+
+      for (let i = 0; i < indices.length - 1; i++) {
+        for (let j = i + 1; j < indices.length; j++) {
+          const similarity = this.parameterSimilarity(
+            actionParams[indices[i]].params,
+            actionParams[indices[j]].params
+          );
+          if (similarity > 0.7) {
+            repeatedActions.push(recentActions[indices[i]]);
+            repeatedActions.push(recentActions[indices[j]]);
+          }
+        }
+      }
+    }
+
+    return [...new Set(repeatedActions)];
   }
 
   // Domain-Agnostic Helper Methods
