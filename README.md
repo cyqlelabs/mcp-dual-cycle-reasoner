@@ -5,6 +5,10 @@
 
 A Model Context Protocol (MCP) server implementing the **Dual-Cycle Metacognitive Reasoning Framework** for autonomous agents. This tool empowers agents with greater self-awareness and reliability through intelligent loop detection and experience acquisition.
 
+<a href="https://glama.ai/mcp/servers/@cyqlelabs/mcp-dual-cycle-reasoner">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@cyqlelabs/mcp-dual-cycle-reasoner/badge" alt="Dual-Cycle Reasoner MCP server" />
+</a>
+
 ## Description
 
 The MCP Dual-Cycle Reasoner is a sophisticated tool designed to enhance the autonomy and reliability of AI agents. By implementing a dual-cycle metacognitive framework, it provides agents with the ability to monitor their own cognitive processes, detect when they are stuck in repetitive loops, and learn from past experiences to make better decisions.
