@@ -665,7 +665,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
     );
 
     // Initialize semantic analyzer before starting server
-    await this.initializeSemanticAnalyzer();
+    this.initializeSemanticAnalyzer();
 
     if (transportType === 'stdio') {
       console.log(chalk.cyan('📡 Using stdio transport'));
