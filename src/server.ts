@@ -131,10 +131,18 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
   private async initializeSemanticAnalyzer(): Promise<void> {
     try {
-      await semanticAnalyzer.initialize();
+      // Initialize semantic analyzer with timeout to prevent hanging
+      // Use 120 seconds to account for cloud bandwidth limitations
+      const initPromise = semanticAnalyzer.initialize();
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Semantic analyzer initialization timeout')), 120000)
+      );
+
+      await Promise.race([initPromise, timeoutPromise]);
       console.log(chalk.green('✓ Semantic analyzer initialized successfully'));
     } catch (error) {
-      console.error(chalk.red('✗ Failed to initialize semantic analyzer:'), error);
+      console.warn(chalk.yellow('⚠ Semantic analyzer initialization failed or timed out:'), error);
+      console.log(chalk.gray('Server will continue without semantic analysis features'));
     }
   }
 
