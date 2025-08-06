@@ -11,7 +11,7 @@ export class Sentinel {
   constructor(config: Partial<SentinelConfig> = {}) {
     this.config = {
       progress_indicators: config.progress_indicators || [],
-      min_actions_for_detection: config.min_actions_for_detection || 3,
+      min_actions_for_detection: config.min_actions_for_detection || 5,
       alternating_threshold: config.alternating_threshold || 0.5,
       repetition_threshold: config.repetition_threshold || 0.4,
       progress_threshold_adjustment: config.progress_threshold_adjustment || 0.2,
@@ -327,15 +327,19 @@ export class Sentinel {
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 8
   ): Promise<LoopDetectionResult> {
+    const minActionsForDetection = Math.max(
+      this.config.min_actions_for_detection,
+      Math.floor(windowSize * 0.3)
+    );
     if (
       !trace.recent_actions ||
       !Array.isArray(trace.recent_actions) ||
-      trace.recent_actions.length < 6
+      trace.recent_actions.length < minActionsForDetection
     ) {
       return {
         detected: false,
         confidence: 0,
-        details: 'Insufficient step history for stagnation detection',
+        details: `Insufficient action history: ${trace.recent_actions?.length || 0}/${minActionsForDetection} required`,
       };
     }
 
@@ -393,7 +397,7 @@ export class Sentinel {
     }
 
     // Secondary detection: multi-factor stagnation analysis
-    if (stagnationScore > dynamicThreshold && actionCount >= 8) {
+    if (stagnationScore > dynamicThreshold && actionCount >= minActionsForDetection) {
       const confidence = Math.min(0.95, 0.5 + stagnationScore * 0.5);
 
       const recentActions = trace.recent_actions.slice(-windowSize);
