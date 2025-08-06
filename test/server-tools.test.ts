@@ -87,7 +87,7 @@ describe('MCP Server Tools Tests', () => {
       const initialBeliefs = ['belief1', 'belief2'];
 
       const startSpy = jest.spyOn(engine, 'startMonitoring');
-      engine.startMonitoring(goal, initialBeliefs);
+      await engine.startMonitoring(goal, initialBeliefs);
 
       expect(startSpy).toHaveBeenCalledWith(goal, initialBeliefs);
 
@@ -100,7 +100,7 @@ describe('MCP Server Tools Tests', () => {
       const goal = 'Test goal';
 
       const startSpy = jest.spyOn(engine, 'startMonitoring');
-      engine.startMonitoring(goal, []);
+      await engine.startMonitoring(goal, []);
 
       expect(startSpy).toHaveBeenCalledWith(goal, []);
 
@@ -109,10 +109,10 @@ describe('MCP Server Tools Tests', () => {
     });
 
     it('should allow starting monitoring while already monitoring', async () => {
-      engine.startMonitoring('First goal', []);
+      await engine.startMonitoring('First goal', []);
 
       // Should not throw error - engine allows restarting monitoring
-      engine.startMonitoring('Second goal', []);
+      await engine.startMonitoring('Second goal', []);
 
       const status = engine.getMonitoringStatus();
       expect(status.is_monitoring).toBe(true);
@@ -123,7 +123,7 @@ describe('MCP Server Tools Tests', () => {
   describe('stop_monitoring tool', () => {
     it('should stop monitoring and return session summary', async () => {
       // Start monitoring first
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       // Process some actions
       await engine.processTraceUpdate('test_action', 'test_context', 'Test goal');
@@ -155,7 +155,7 @@ describe('MCP Server Tools Tests', () => {
 
   describe('process_trace_update tool', () => {
     it('should process trace updates with all parameters', async () => {
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       const processSpy = jest.spyOn(engine, 'processTraceUpdate');
       const result = await engine.processTraceUpdate(
@@ -172,7 +172,7 @@ describe('MCP Server Tools Tests', () => {
     });
 
     it('should handle optional parameters', async () => {
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       const result = await engine.processTraceUpdate('test_action', undefined, 'Test goal');
 
@@ -181,7 +181,7 @@ describe('MCP Server Tools Tests', () => {
     });
 
     it('should handle window size parameter', async () => {
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       const result = await engine.processTraceUpdate('test_action', 'test_context', 'Test goal', 5);
 
@@ -199,7 +199,7 @@ describe('MCP Server Tools Tests', () => {
 
   describe('detect_loop tool', () => {
     it('should detect loops with different methods', async () => {
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       // Add some actions to create a trace
       await engine.processTraceUpdate('scroll_down', 'searching', 'Test goal');
@@ -210,9 +210,9 @@ describe('MCP Server Tools Tests', () => {
       const enrichedTrace = engine.getEnrichedCurrentTrace();
 
       // Test different detection methods
-      const statisticalResult = sentinel.detectLoop(enrichedTrace, 'statistical');
-      const patternResult = sentinel.detectLoop(enrichedTrace, 'pattern');
-      const hybridResult = sentinel.detectLoop(enrichedTrace, 'hybrid');
+      const statisticalResult = await sentinel.detectLoop(enrichedTrace, 'statistical');
+      const patternResult = await sentinel.detectLoop(enrichedTrace, 'pattern');
+      const hybridResult = await sentinel.detectLoop(enrichedTrace, 'hybrid');
 
       expect(statisticalResult).toBeDefined();
       expect(patternResult).toBeDefined();
@@ -224,19 +224,19 @@ describe('MCP Server Tools Tests', () => {
     });
 
     it('should handle empty trace', async () => {
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       const sentinel = (engine as any).sentinel;
       const enrichedTrace = engine.getEnrichedCurrentTrace();
 
-      const result = sentinel.detectLoop(enrichedTrace, 'hybrid');
+      const result = await sentinel.detectLoop(enrichedTrace, 'hybrid');
 
       expect(result).toBeDefined();
       expect(result.detected).toBe(false);
     });
 
     it('should update context and goal when provided', async () => {
-      engine.startMonitoring('Original goal', []);
+      await engine.startMonitoring('Original goal', []);
 
       // Add some actions
       await engine.processTraceUpdate('action1', 'context1', 'Original goal');
@@ -251,7 +251,7 @@ describe('MCP Server Tools Tests', () => {
         goal: 'Updated goal',
       };
 
-      const result = sentinel.detectLoop(updatedTrace, 'hybrid');
+      const result = await sentinel.detectLoop(updatedTrace, 'hybrid');
 
       expect(result).toBeDefined();
     });
@@ -397,7 +397,7 @@ describe('MCP Server Tools Tests', () => {
     });
 
     it('should return monitoring status when actively monitoring', async () => {
-      engine.startMonitoring('Active goal', ['belief1']);
+      await engine.startMonitoring('Active goal', ['belief1']);
 
       await engine.processTraceUpdate('action1', 'context1', 'Active goal');
       await engine.processTraceUpdate('action2', 'context2', 'Active goal');
@@ -410,7 +410,7 @@ describe('MCP Server Tools Tests', () => {
     });
 
     it('should track intervention count', async () => {
-      engine.startMonitoring('Test goal', []);
+      await engine.startMonitoring('Test goal', []);
 
       // Process actions that should trigger interventions
       const actions = ['scroll_down', 'scroll_down', 'scroll_down', 'scroll_down', 'scroll_down'];
@@ -430,7 +430,7 @@ describe('MCP Server Tools Tests', () => {
   describe('reset_engine tool', () => {
     it('should reset engine state completely', async () => {
       // Set up some state
-      engine.startMonitoring('Test goal', ['belief1']);
+      await engine.startMonitoring('Test goal', ['belief1']);
       await engine.processTraceUpdate('action1', 'context1', 'Test goal');
 
       const statusBeforeReset = engine.getMonitoringStatus();
@@ -544,7 +544,7 @@ describe('MCP Server Tools Tests', () => {
   describe('Tool Integration Tests', () => {
     it('should handle complete workflow from start to reset', async () => {
       // 1. Start monitoring
-      engine.startMonitoring('Complete workflow test', ['initial belief']);
+      await engine.startMonitoring('Complete workflow test', ['initial belief']);
 
       let status = engine.getMonitoringStatus();
       expect(status.is_monitoring).toBe(true);
@@ -559,7 +559,7 @@ describe('MCP Server Tools Tests', () => {
       // 3. Detect loop
       const sentinel = (engine as any).sentinel;
       const enrichedTrace = engine.getEnrichedCurrentTrace();
-      const loopResult = sentinel.detectLoop(enrichedTrace, 'hybrid');
+      const loopResult = await sentinel.detectLoop(enrichedTrace, 'hybrid');
 
       expect(loopResult).toBeDefined();
 
@@ -610,4 +610,3 @@ describe('MCP Server Tools Tests', () => {
     });
   });
 });
-

@@ -1,6 +1,7 @@
 import { Sentinel } from './sentinel.js';
 import { Adjudicator } from './adjudicator.js';
 import { CognitiveTrace, LoopDetectionResult, Case, SentinelConfig } from './types.js';
+import { semanticAnalyzer } from './semantic-analyzer.js';
 import chalk from 'chalk';
 
 /**
@@ -29,6 +30,15 @@ export class DualCycleEngine {
   }
 
   /**
+   * Initialize the semantic analyzer if not already done
+   */
+  async ensureSemanticAnalyzerReady(): Promise<void> {
+    if (!semanticAnalyzer.isReady()) {
+      await semanticAnalyzer.initialize();
+    }
+  }
+
+  /**
    * Initialize a new cognitive trace for monitoring
    */
   private initializeTrace(): CognitiveTrace {
@@ -42,7 +52,10 @@ export class DualCycleEngine {
   /**
    * Start metacognitive monitoring of an agent's cognitive trace
    */
-  startMonitoring(initialGoal: string, initialBeliefs: string[] = []): void {
+  async startMonitoring(initialGoal: string, initialBeliefs: string[] = []): Promise<void> {
+    // Ensure semantic analyzer is ready before starting monitoring
+    await this.ensureSemanticAnalyzerReady();
+
     this.isMonitoring = true;
     this.currentTrace = this.initializeTrace();
     this.currentTrace.goal = initialGoal;
@@ -103,7 +116,7 @@ export class DualCycleEngine {
     );
 
     // METACOGNITIVE CYCLE - Phase 1: MONITOR
-    const loopDetection = this.monitorForLoops(this.currentTrace, windowSize ?? 10);
+    const loopDetection = await this.monitorForLoops(this.currentTrace, windowSize ?? 10);
 
     if (!loopDetection.detected) {
       console.log(chalk.green('✅ No loops detected - cognitive cycle proceeding normally'));
@@ -164,9 +177,12 @@ export class DualCycleEngine {
    * METACOGNITIVE CYCLE - Phase 1: MONITOR
    * Uses the Sentinel to detect problematic patterns
    */
-  private monitorForLoops(trace: CognitiveTrace, windowSize: number = 10): LoopDetectionResult {
+  private async monitorForLoops(
+    trace: CognitiveTrace,
+    windowSize: number = 10
+  ): Promise<LoopDetectionResult> {
     const enrichedTrace = this.getEnrichedTrace();
-    return this.sentinel.detectLoop(enrichedTrace, 'hybrid', windowSize);
+    return await this.sentinel.detectLoop(enrichedTrace, 'hybrid', windowSize);
   }
 
   /**

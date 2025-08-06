@@ -96,7 +96,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const trace: CognitiveTrace = complexScenarioFixture.cognitive_trace;
 
       // Start monitoring
-      engine.startMonitoring(trace.goal, []);
+      await engine.startMonitoring(trace.goal, []);
 
       // Process the trace actions one by one
       let result: any = { intervention_required: false, loop_detected: { detected: false } };
@@ -136,7 +136,7 @@ describe('DualCycleEngine with Fixtures', () => {
       };
 
       const progressEngine = new DualCycleEngine(progressConfig);
-      progressEngine.startMonitoring(trace.goal, []);
+      await progressEngine.startMonitoring(trace.goal, []);
 
       // Process the trace actions one by one
       let result;
@@ -179,7 +179,7 @@ describe('DualCycleEngine with Fixtures', () => {
     it('should detect loops in repetitive scrolling pattern', async () => {
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
 
-      engine.startMonitoring(trace.goal, []);
+      await engine.startMonitoring(trace.goal, []);
 
       // Process the trace with loop detection
       // Process the trace actions one by one
@@ -205,7 +205,7 @@ describe('DualCycleEngine with Fixtures', () => {
       // This is the critical test - the loop fixture should ALWAYS trigger a loop
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
 
-      engine.startMonitoring(trace.goal, []);
+      await engine.startMonitoring(trace.goal, []);
       // Process the trace actions one by one
       let result;
       for (const action of trace.recent_actions) {
@@ -227,7 +227,7 @@ describe('DualCycleEngine with Fixtures', () => {
     it('should confirm complex scenario triggers state invariance detection', async () => {
       // Complex scenario should trigger state invariance detection due to repetitive actions
       const complexTrace: CognitiveTrace = complexScenarioFixture.cognitive_trace;
-      engine.startMonitoring(complexTrace.goal, []);
+      await engine.startMonitoring(complexTrace.goal, []);
       // Process the trace actions one by one
       let complexResult: any = { intervention_required: false, loop_detected: { detected: false } };
       for (const action of complexTrace.recent_actions) {
@@ -253,7 +253,7 @@ describe('DualCycleEngine with Fixtures', () => {
 
       // Scroll fixture should trigger loop detection due to repetitive scroll_down actions
       const scrollTrace: CognitiveTrace = scrollFixture.cognitive_trace;
-      engine.startMonitoring(scrollTrace.goal, []);
+      await engine.startMonitoring(scrollTrace.goal, []);
       // Process the trace actions one by one
       let scrollResult: any = { intervention_required: false, loop_detected: { detected: false } };
       for (const action of scrollTrace.recent_actions) {
@@ -276,7 +276,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
 
       const sentinel = (engine as any).sentinel;
-      const loopResult = sentinel.detectLoop(trace, 'hybrid');
+      const loopResult = await sentinel.detectLoop(trace, 'hybrid');
 
       expect(loopResult.detected).toBe(true);
       expect(loopResult.type).toBe('progress_stagnation');
@@ -295,7 +295,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const adjudicator = (engine as any).adjudicator;
 
       // Detect loop
-      const loopResult = sentinel.detectLoop(trace, 'hybrid');
+      const loopResult = await sentinel.detectLoop(trace, 'hybrid');
 
       expect(loopResult).toBeDefined();
       expect(loopResult.detected).toBe(true);
@@ -321,7 +321,7 @@ describe('DualCycleEngine with Fixtures', () => {
     it('should handle recovery outcome updates', async () => {
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
 
-      engine.startMonitoring(trace.goal, []);
+      await engine.startMonitoring(trace.goal, []);
       // Process the trace actions one by one
       for (const action of trace.recent_actions) {
         await engine.processTraceUpdate(action, trace.current_context, trace.goal);
@@ -336,7 +336,7 @@ describe('DualCycleEngine with Fixtures', () => {
     it('should handle successful scroll-to-find pattern', async () => {
       const trace: CognitiveTrace = scrollFixture.cognitive_trace;
 
-      engine.startMonitoring(trace.goal, []);
+      await engine.startMonitoring(trace.goal, []);
 
       // Process the trace actions one by one
       let result;
@@ -364,7 +364,7 @@ describe('DualCycleEngine with Fixtures', () => {
       };
 
       const successEngine = new DualCycleEngine(successConfig);
-      successEngine.startMonitoring(trace.goal, []);
+      await successEngine.startMonitoring(trace.goal, []);
 
       // Process the trace actions one by one
       let result;
@@ -405,7 +405,7 @@ describe('DualCycleEngine with Fixtures', () => {
       };
 
       const strictEngine = new DualCycleEngine(strictConfig);
-      strictEngine.startMonitoring(loopFixture.cognitive_trace.goal, []);
+      await strictEngine.startMonitoring(loopFixture.cognitive_trace.goal, []);
 
       // Process the trace actions one by one
       let result;
@@ -445,7 +445,7 @@ describe('DualCycleEngine with Fixtures', () => {
       // Process actions with different contexts to avoid state invariance
       const contexts = ['searching', 'found_target', 'clicking'];
 
-      progressEngine.startMonitoring(progressTrace.goal, []);
+      await progressEngine.startMonitoring(progressTrace.goal, []);
       // Process the trace actions one by one with different contexts
       let result;
       for (let i = 0; i < progressTrace.recent_actions.length; i++) {
@@ -469,7 +469,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const trace: CognitiveTrace = loopFixture.cognitive_trace;
 
       // Start monitoring
-      engine.startMonitoring(trace.goal, ['Button should be visible', 'Page loads quickly']);
+      await engine.startMonitoring(trace.goal, ['Button should be visible', 'Page loads quickly']);
 
       // Process trace and detect loop
       // Process the trace actions one by one
@@ -493,7 +493,7 @@ describe('DualCycleEngine with Fixtures', () => {
     it('should maintain session state across multiple trace updates', async () => {
       const scrollTrace: CognitiveTrace = scrollFixture.cognitive_trace;
 
-      engine.startMonitoring(scrollTrace.goal, []);
+      await engine.startMonitoring(scrollTrace.goal, []);
 
       // Process partial trace
       const partialTrace = {
@@ -542,7 +542,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const trace: CognitiveTrace = complexScenarioFixture.cognitive_trace;
 
       // Process some data
-      engine.startMonitoring(trace.goal, ['Initial belief']);
+      await engine.startMonitoring(trace.goal, ['Initial belief']);
       // Process the trace actions one by one
       for (const action of trace.recent_actions) {
         await engine.processTraceUpdate(action, trace.current_context, trace.goal);
@@ -564,7 +564,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const initialBeliefs = ['Download button is visible on page'];
 
       // Step 1: Start monitoring
-      engine.startMonitoring(goal, initialBeliefs);
+      await engine.startMonitoring(goal, initialBeliefs);
 
       let status = engine.getMonitoringStatus();
       expect(status.is_monitoring).toBe(true);
@@ -602,7 +602,7 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(enrichedTrace.recent_actions).toBeDefined();
       expect(enrichedTrace.recent_actions.length).toBeGreaterThan(0);
 
-      const loopResult = sentinel.detectLoop(enrichedTrace, 'hybrid');
+      const loopResult = await sentinel.detectLoop(enrichedTrace, 'hybrid');
 
       expect(loopResult).toBeDefined();
       expect(loopResult.detected).toBe(true);
@@ -624,7 +624,7 @@ describe('DualCycleEngine with Fixtures', () => {
       const goal = 'Navigate to pricing page';
 
       // Start monitoring
-      engine.startMonitoring(goal, []);
+      await engine.startMonitoring(goal, []);
 
       const testActions = [
         'click_element_by_index',

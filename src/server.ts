@@ -185,7 +185,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             initialBeliefsCount: args.initial_beliefs.length,
           });
 
-          this.engine.startMonitoring(args.goal, args.initial_beliefs);
+          await this.engine.startMonitoring(args.goal, args.initial_beliefs);
 
           log.info('Monitoring started successfully');
           return `✅ Metacognitive monitoring started for goal: "${args.goal}" with ${args.initial_beliefs.length} initial beliefs`;
@@ -351,7 +351,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
           // Direct access to sentinel for standalone loop detection
           const sentinel = (this.engine as any).sentinel;
-          const result = sentinel.detectLoop(trace, validatedArgs.detection_method);
+          const result = await sentinel.detectLoop(trace, validatedArgs.detection_method);
 
           await reportProgress({ progress: 2, total: 2 });
 

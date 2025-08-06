@@ -1,6 +1,7 @@
 import { CognitiveTrace, LoopDetectionResult, SentinelConfig } from './types.js';
 import { createHash } from 'crypto';
 import * as ss from 'simple-statistics';
+import { semanticAnalyzer } from './semantic-analyzer.js';
 
 export class Sentinel {
   private stateHistory: string[] = [];
@@ -10,7 +11,7 @@ export class Sentinel {
   constructor(config: Partial<SentinelConfig> = {}) {
     this.config = {
       progress_indicators: config.progress_indicators || [],
-      min_actions_for_detection: config.min_actions_for_detection || 5,
+      min_actions_for_detection: config.min_actions_for_detection || 3,
       alternating_threshold: config.alternating_threshold || 0.5,
       repetition_threshold: config.repetition_threshold || 0.4,
       progress_threshold_adjustment: config.progress_threshold_adjustment || 0.2,
@@ -79,10 +80,10 @@ export class Sentinel {
    * Strategy 1: Domain-Agnostic Action Pattern Analysis
    * Detects loops using semantic action similarity and behavioral patterns
    */
-  detectActionAnomalies(
+  async detectActionAnomalies(
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 10
-  ): LoopDetectionResult {
+  ): Promise<LoopDetectionResult> {
     if (
       !trace.recent_actions ||
       !Array.isArray(trace.recent_actions) ||
@@ -94,7 +95,7 @@ export class Sentinel {
     // Use configurable minimum actions threshold to avoid false positives on legitimate exploration
     const minActionsForDetection = Math.max(
       this.config.min_actions_for_detection,
-      Math.floor(windowSize * 0.5)
+      Math.floor(windowSize * 0.3)
     );
     if (trace.recent_actions.length < minActionsForDetection) {
       return {
@@ -107,7 +108,7 @@ export class Sentinel {
     const recentActions = trace.recent_actions.slice(-windowSize);
 
     // Domain-agnostic semantic similarity analysis
-    const semanticClusters = this.clusterSemanticallySimilarActions(recentActions);
+    const semanticClusters = await this.clusterSemanticallySimilarActions(recentActions);
     const semanticRepetitionRatio = this.calculateSemanticRepetition(
       semanticClusters,
       recentActions.length
@@ -122,22 +123,16 @@ export class Sentinel {
     const exactRepetitionRatio = 1 - uniqueActions.size / recentActions.length;
 
     // Check for cyclical patterns (A-B-A-B or A-B-C-A-B-C)
-    const cyclicalScore = this.detectCyclicalPatterns(recentActions);
+    const cyclicalScore = await this.detectCyclicalPatterns(recentActions);
 
     // Check for oscillating patterns (A-B-A-B specifically)
-    const oscillationScore = this.detectOscillationPatterns(recentActions);
+    const oscillationScore = await this.detectOscillationPatterns(recentActions);
 
     // Enhanced pattern detection for alternating actions using semantic similarity
     const alternatingScore = this.detectAlternatingPatterns(semanticClusters, recentActions);
 
     // Check for configurable progress indicators that suggest positive task advancement
-    const hasProgressAction =
-      this.config.progress_indicators.length > 0 &&
-      recentActions.some((action) =>
-        this.config.progress_indicators.some(
-          (indicator) => this.semanticSimilarity(action, indicator) > 0.7
-        )
-      );
+    const hasProgressAction = await this.checkProgressIndicators(recentActions);
 
     // Calculate combined anomaly score using multiple detection methods
     const anomalyScores = {
@@ -168,7 +163,7 @@ export class Sentinel {
     }, 0);
 
     // Adjust threshold based on whether we have progress indicators
-    const baseThreshold = 0.35; // More sensitive than before
+    const baseThreshold = 0.25; // Even more sensitive for better detection
     const anomalyThreshold = hasProgressAction
       ? baseThreshold + this.config.progress_threshold_adjustment
       : baseThreshold;
@@ -191,7 +186,7 @@ export class Sentinel {
       return {
         detected: true,
         type: 'action_repetition',
-        confidence: Math.min(0.95, combinedAnomalyScore + 0.1),
+        confidence: Math.min(0.95, combinedAnomalyScore + 0.3),
         details: `Loop detected via ${dominantMethod.method}: ${(combinedAnomalyScore * 100).toFixed(1)}% anomaly score. Semantic: ${(anomalyScores.semantic_repetition * 100).toFixed(1)}%, Parameter: ${(anomalyScores.parameter_repetition * 100).toFixed(1)}%, Exact: ${(anomalyScores.exact_repetition * 100).toFixed(1)}%, Cyclical: ${(anomalyScores.cyclical_pattern * 100).toFixed(1)}% (${specificActionsInvolved.length}/${recentActions.length} methods agreed)`,
         actions_involved: specificActionsInvolved,
         statistical_metrics: {
@@ -226,7 +221,7 @@ export class Sentinel {
     // Use same action history requirements as detectActionAnomalies for consistency
     const minActionsForDetection = Math.max(
       this.config.min_actions_for_detection,
-      Math.floor(windowSize * 0.5)
+      Math.floor(windowSize * 0.3)
     );
     if (trace.recent_actions.length < minActionsForDetection) {
       return {
@@ -326,68 +321,81 @@ export class Sentinel {
 
   /**
    * Strategy 3: Enhanced Progress Heuristic Evaluation
-   * Uses advanced time series analysis for stagnation detection
+   * Uses domain-agnostic analysis with progressive thresholds for stagnation detection
    */
-  detectProgressStagnation(
+  async detectProgressStagnation(
     trace: CognitiveTrace & { recent_actions: string[] },
-    windowSize: number = 6
-  ): LoopDetectionResult {
+    windowSize: number = 8
+  ): Promise<LoopDetectionResult> {
     if (
       !trace.recent_actions ||
       !Array.isArray(trace.recent_actions) ||
-      trace.recent_actions.length < 3
+      trace.recent_actions.length < 6
     ) {
-      return { detected: false, confidence: 0, details: 'Insufficient step history' };
+      return {
+        detected: false,
+        confidence: 0,
+        details: 'Insufficient step history for stagnation detection',
+      };
     }
 
-    const actionCount = trace.recent_actions ? trace.recent_actions.length : 0;
+    const actionCount = trace.recent_actions.length;
 
-    // Calculate action diversity in recent window
-    if (actionCount > 0) {
-      const recentWindow = trace.recent_actions.slice(-windowSize);
-      const uniqueActionsInWindow = new Set(recentWindow).size;
-      const diversityRatio = uniqueActionsInWindow / recentWindow.length;
+    // Multi-window analysis: short-term vs long-term patterns
+    const shortWindow = trace.recent_actions.slice(-Math.min(5, actionCount));
+    const longWindow = trace.recent_actions.slice(-Math.min(windowSize, actionCount));
 
-      // Low diversity suggests repetitive behavior
-      if (diversityRatio < 0.4 && recentWindow.length >= 4) {
-        // Get most frequent actions in the window
-        const actionCounts = new Map<string, number>();
-        recentWindow.forEach((action) => {
-          actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
-        });
+    // Calculate diversity for both windows
+    const shortDiversity = new Set(shortWindow).size / shortWindow.length;
+    const longDiversity = new Set(longWindow).size / longWindow.length;
 
-        const lowDiversityActions = Array.from(actionCounts.entries())
-          .filter(([, count]) => count > 1)
-          .map(([action]) => action);
+    // Progressive threshold: becomes more lenient with more actions (allows for longer exploration)
+    const baseThreshold = 0.25; // More permissive base threshold
+    const progressiveFactor = Math.min(0.1, (actionCount - 6) * 0.01); // Gradual increase
+    const diversityThreshold = baseThreshold + progressiveFactor;
 
-        return {
-          detected: true,
-          type: 'progress_stagnation',
-          confidence: 0.8,
-          details: `Low action diversity detected: ${(diversityRatio * 100).toFixed(1)}% unique actions in recent window`,
-          actions_involved: lowDiversityActions,
-        };
-      }
-    }
-
-    // Enhanced progress analysis using time series
+    // Advanced pattern analysis
     const timeSeriesAnalysis = this.analyzeActionTimeSeries(trace);
-    const progressRate = actionCount / trace.recent_actions.length;
+    const actionChangeVelocity = this.calculateActionChangeVelocity(trace.recent_actions);
+    const semanticVariation = await this.calculateSemanticVariation(trace.recent_actions);
 
-    // Combine multiple stagnation indicators
-    const stagnationScore = Math.max(
-      timeSeriesAnalysis.stagnationScore,
-      timeSeriesAnalysis.cyclicityScore,
-      progressRate < 0.3 ? 0.8 : 0.2
-    );
+    // Multi-factor stagnation score
+    const diversityScore = 1 - longDiversity;
+    const stagnationScore =
+      diversityScore * 0.4 +
+      timeSeriesAnalysis.stagnationScore * 0.3 +
+      (1 - actionChangeVelocity) * 0.2 +
+      (1 - semanticVariation) * 0.1;
 
-    const stagnationThreshold = 0.6;
+    // Dynamic threshold that adapts to action count
+    const dynamicThreshold = Math.min(0.75, 0.55 + (actionCount - 8) * 0.015);
 
-    if (stagnationScore > stagnationThreshold && trace.recent_actions.length > 5) {
-      const confidence = Math.min(0.95, 0.6 + stagnationScore * 0.3);
-      const details = `Advanced stagnation detected: Stagnation=${(stagnationScore * 100).toFixed(1)}%, Trend=${(timeSeriesAnalysis.trendScore * 100).toFixed(1)}%, Cyclicity=${(timeSeriesAnalysis.cyclicityScore * 100).toFixed(1)}%, Progress rate=${progressRate.toFixed(3)}`;
+    // Primary detection: extremely low diversity (likely stuck)
+    if (longDiversity < diversityThreshold && longWindow.length >= 6) {
+      const actionCounts = new Map<string, number>();
+      longWindow.forEach((action) => {
+        actionCounts.set(action, (actionCounts.get(action) || 0) + 1);
+      });
 
-      // Get actions involved in stagnation (most frequent actions)
+      const lowDiversityActions = Array.from(actionCounts.entries())
+        .filter(([, count]) => count > 1)
+        .map(([action]) => action);
+
+      const confidence = Math.min(0.9, 0.6 + (1 - longDiversity) * 0.8);
+
+      return {
+        detected: true,
+        type: 'progress_stagnation',
+        confidence,
+        details: `Critical action diversity drop: ${(longDiversity * 100).toFixed(1)}% unique actions (threshold: ${(diversityThreshold * 100).toFixed(1)}%, ${longWindow.length} actions analyzed)`,
+        actions_involved: lowDiversityActions,
+      };
+    }
+
+    // Secondary detection: multi-factor stagnation analysis
+    if (stagnationScore > dynamicThreshold && actionCount >= 8) {
+      const confidence = Math.min(0.95, 0.5 + stagnationScore * 0.5);
+
       const recentActions = trace.recent_actions.slice(-windowSize);
       const actionCounts = new Map<string, number>();
       recentActions.forEach((action) => {
@@ -397,6 +405,11 @@ export class Sentinel {
       const stagnationActions = Array.from(actionCounts.entries())
         .filter(([, count]) => count > 1)
         .map(([action]) => action);
+
+      const details =
+        `Multi-factor stagnation: Score=${(stagnationScore * 100).toFixed(1)}%, ` +
+        `Diversity=${(longDiversity * 100).toFixed(1)}%, Velocity=${(actionChangeVelocity * 100).toFixed(1)}%, ` +
+        `Variation=${(semanticVariation * 100).toFixed(1)}%, Threshold=${(dynamicThreshold * 100).toFixed(1)}%`;
 
       return {
         detected: true,
@@ -409,29 +422,29 @@ export class Sentinel {
 
     return {
       detected: false,
-      confidence: 0.9,
-      details: `Progress trends healthy: Rate=${progressRate.toFixed(3)}, diversity acceptable`,
+      confidence: 0.8,
+      details: `Progress healthy: Diversity=${(longDiversity * 100).toFixed(1)}%, StagnationScore=${(stagnationScore * 100).toFixed(1)}%, Velocity=${(actionChangeVelocity * 100).toFixed(1)}%`,
     };
   }
 
   /**
    * Hybrid loop detection combining all three strategies
    */
-  detectLoop(
+  async detectLoop(
     trace: CognitiveTrace & { recent_actions: string[] },
     method: 'statistical' | 'pattern' | 'hybrid' = 'hybrid',
     windowSize: number = 10
-  ): LoopDetectionResult {
+  ): Promise<LoopDetectionResult> {
     switch (method) {
       case 'statistical':
-        return this.detectActionAnomalies(trace, windowSize);
+        return await this.detectActionAnomalies(trace, windowSize);
       case 'pattern':
         return this.detectStateInvariance(trace, 2, windowSize);
       case 'hybrid':
       default:
-        const actionResult = this.detectActionAnomalies(trace, windowSize);
+        const actionResult = await this.detectActionAnomalies(trace, windowSize);
         const stateResult = this.detectStateInvariance(trace, 2, windowSize);
-        const progressResult = this.detectProgressStagnation(trace, windowSize);
+        const progressResult = await this.detectProgressStagnation(trace, windowSize);
 
         // Combine results - if any method detects a loop with high confidence, flag it
         const results = [actionResult, stateResult, progressResult];
@@ -729,7 +742,7 @@ export class Sentinel {
   /**
    * Cluster actions by semantic similarity to detect repeated intentions
    */
-  private clusterSemanticallySimilarActions(actions: string[]): string[][] {
+  private async clusterSemanticallySimilarActions(actions: string[]): Promise<string[][]> {
     const clusters: string[][] = [];
     const processed = new Set<number>();
 
@@ -742,7 +755,8 @@ export class Sentinel {
       for (let j = i + 1; j < actions.length; j++) {
         if (processed.has(j)) continue;
 
-        if (this.semanticSimilarity(actions[i], actions[j]) > 0.7) {
+        const similarity = await this.semanticSimilarity(actions[i], actions[j]);
+        if (similarity > 0.7) {
           cluster.push(actions[j]);
           processed.add(j);
         }
@@ -755,21 +769,11 @@ export class Sentinel {
   }
 
   /**
-   * Calculate semantic similarity between two action strings
+   * Calculate semantic similarity between two action strings using semantic analyzer
    */
-  private semanticSimilarity(action1: string, action2: string): number {
-    // Extract action name and parameters
-    const parsed1 = this.extractActionParameters(action1);
-    const parsed2 = this.extractActionParameters(action2);
-
-    // If action names are identical, they're semantically similar
-    if (parsed1.name === parsed2.name) {
-      return 0.8 + this.parameterSimilarity(parsed1.params, parsed2.params) * 0.2;
-    }
-
-    // Check for semantically similar action names
-    const nameSimilarity = this.tokenSimilarity(parsed1.name, parsed2.name);
-    return nameSimilarity * 0.6 + this.parameterSimilarity(parsed1.params, parsed2.params) * 0.4;
+  private async semanticSimilarity(action1: string, action2: string): Promise<number> {
+    const result = await semanticAnalyzer.calculateSemanticSimilarity(action1, action2);
+    return result.similarity;
   }
 
   /**
@@ -875,7 +879,7 @@ export class Sentinel {
   /**
    * Detect cyclical patterns in action sequences
    */
-  private detectCyclicalPatterns(actions: string[]): number {
+  private async detectCyclicalPatterns(actions: string[]): Promise<number> {
     if (actions.length < 4) return 0;
 
     let maxCyclicity = 0;
@@ -888,7 +892,8 @@ export class Sentinel {
       for (let i = 0; i < actions.length - cycleLen; i++) {
         if (i + cycleLen < actions.length) {
           comparisons++;
-          if (this.semanticSimilarity(actions[i], actions[i + cycleLen]) > 0.7) {
+          const similarity = await this.semanticSimilarity(actions[i], actions[i + cycleLen]);
+          if (similarity > 0.7) {
             matches++;
           }
         }
@@ -906,7 +911,7 @@ export class Sentinel {
   /**
    * Detect oscillation patterns (A-B-A-B)
    */
-  private detectOscillationPatterns(actions: string[]): number {
+  private async detectOscillationPatterns(actions: string[]): Promise<number> {
     if (actions.length < 4) return 0;
 
     let oscillations = 0;
@@ -914,11 +919,11 @@ export class Sentinel {
 
     for (let i = 0; i < actions.length - 3; i++) {
       checks++;
-      if (
-        this.semanticSimilarity(actions[i], actions[i + 2]) > 0.7 &&
-        this.semanticSimilarity(actions[i + 1], actions[i + 3]) > 0.7 &&
-        this.semanticSimilarity(actions[i], actions[i + 1]) < 0.7
-      ) {
+      const sim1 = await this.semanticSimilarity(actions[i], actions[i + 2]);
+      const sim2 = await this.semanticSimilarity(actions[i + 1], actions[i + 3]);
+      const sim3 = await this.semanticSimilarity(actions[i], actions[i + 1]);
+
+      if (sim1 > 0.7 && sim2 > 0.7 && sim3 < 0.7) {
         oscillations++;
       }
     }
@@ -1096,5 +1101,80 @@ export class Sentinel {
     }
 
     return comparisons > 0 ? totalSimilarity / comparisons : 0;
+  }
+
+  /**
+   * Calculate the velocity of action changes (domain-agnostic pattern analysis)
+   */
+  private calculateActionChangeVelocity(actions: string[]): number {
+    if (actions.length < 3) return 0.5;
+
+    let changes = 0;
+    for (let i = 1; i < actions.length; i++) {
+      if (actions[i] !== actions[i - 1]) {
+        changes++;
+      }
+    }
+
+    return actions.length > 1 ? changes / (actions.length - 1) : 0;
+  }
+
+  /**
+   * Calculate semantic variation using the semantic analyzer
+   */
+  private async calculateSemanticVariation(actions: string[]): Promise<number> {
+    if (actions.length < 4) return 0.5;
+
+    const featurePromises = actions.map((action) =>
+      semanticAnalyzer.extractSemanticFeatures(action)
+    );
+    const features = await Promise.all(featurePromises);
+
+    // Calculate intent diversity
+    const uniqueIntents = new Set(features.flatMap((f) => f.intents));
+    const intentDiversity = uniqueIntents.size / Math.min(actions.length, 10);
+
+    // Calculate sentiment variation
+    const sentiments = features.map((f) => f.sentiment);
+    const uniqueSentiments = new Set(sentiments);
+    const sentimentVariation = uniqueSentiments.size / 3;
+
+    // Calculate temporal evolution
+    const midPoint = Math.floor(features.length / 2);
+    const firstHalf = features.slice(0, midPoint);
+    const secondHalf = features.slice(midPoint);
+
+    const firstHalfIntents = new Set(firstHalf.flatMap((f) => f.intents));
+    const secondHalfIntents = new Set(secondHalf.flatMap((f) => f.intents));
+
+    const evolutionScore =
+      firstHalf.length > 0 && secondHalf.length > 0
+        ? Math.abs(
+            firstHalfIntents.size / firstHalf.length - secondHalfIntents.size / secondHalf.length
+          )
+        : 0;
+
+    const variationScore = intentDiversity * 0.6 + sentimentVariation * 0.2 + evolutionScore * 0.2;
+
+    return Math.max(0, Math.min(1, variationScore));
+  }
+
+  /**
+   * Check for progress indicators using semantic analysis
+   */
+  private async checkProgressIndicators(recentActions: string[]): Promise<boolean> {
+    if (this.config.progress_indicators.length === 0) {
+      return false;
+    }
+
+    for (const action of recentActions) {
+      for (const indicator of this.config.progress_indicators) {
+        const similarity = await semanticAnalyzer.calculateSemanticSimilarity(action, indicator);
+        if (similarity.similarity > 0.7) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 }
