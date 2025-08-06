@@ -107,8 +107,11 @@ export class Sentinel {
 
     const recentActions = trace.recent_actions.slice(-windowSize);
 
-    // Domain-agnostic semantic similarity analysis
-    const semanticClusters = await this.clusterSemanticallySimilarActions(recentActions);
+    // PERFORMANCE OPTIMIZATION: Compute similarity matrix once for all semantic operations
+    const similarityMatrix = await semanticAnalyzer.computeSimilarityMatrix(recentActions);
+
+    // Domain-agnostic semantic similarity analysis using precomputed matrix
+    const semanticClusters = this.clusterWithPrecomputedSimilarity(recentActions, similarityMatrix);
     const semanticRepetitionRatio = this.calculateSemanticRepetition(
       semanticClusters,
       recentActions.length
@@ -122,11 +125,11 @@ export class Sentinel {
     const uniqueActions = new Set(recentActions);
     const exactRepetitionRatio = 1 - uniqueActions.size / recentActions.length;
 
-    // Check for cyclical patterns (A-B-A-B or A-B-C-A-B-C)
-    const cyclicalScore = await this.detectCyclicalPatterns(recentActions);
+    // Check for cyclical patterns using precomputed similarities
+    const cyclicalScore = await this.detectCyclicalPatterns(recentActions, similarityMatrix);
 
-    // Check for oscillating patterns (A-B-A-B specifically)
-    const oscillationScore = await this.detectOscillationPatterns(recentActions);
+    // Check for oscillating patterns using precomputed similarities
+    const oscillationScore = await this.detectOscillationPatterns(recentActions, similarityMatrix);
 
     // Enhanced pattern detection for alternating actions using semantic similarity
     const alternatingScore = this.detectAlternatingPatterns(semanticClusters, recentActions);
@@ -325,7 +328,8 @@ export class Sentinel {
    */
   async detectProgressStagnation(
     trace: CognitiveTrace & { recent_actions: string[] },
-    windowSize: number = 8
+    windowSize: number = 8,
+    similarityMatrix?: number[][]
   ): Promise<LoopDetectionResult> {
     const minActionsForDetection = Math.max(
       this.config.min_actions_for_detection,
@@ -358,10 +362,13 @@ export class Sentinel {
     const progressiveFactor = Math.min(0.1, (actionCount - 6) * 0.01); // Gradual increase
     const diversityThreshold = baseThreshold + progressiveFactor;
 
-    // Advanced pattern analysis
+    // Advanced pattern analysis with optional precomputed similarity matrix
     const timeSeriesAnalysis = this.analyzeActionTimeSeries(trace);
     const actionChangeVelocity = this.calculateActionChangeVelocity(trace.recent_actions);
-    const semanticVariation = await this.calculateSemanticVariation(trace.recent_actions);
+    const semanticVariation = await this.calculateSemanticVariation(
+      trace.recent_actions,
+      similarityMatrix
+    );
 
     // Multi-factor stagnation score
     const diversityScore = 1 - longDiversity;
@@ -744,9 +751,15 @@ export class Sentinel {
   // Domain-Agnostic Helper Methods
 
   /**
-   * Cluster actions by semantic similarity to detect repeated intentions
+   * PERFORMANCE OPTIMIZED: Cluster actions using precomputed similarity matrix
    */
-  private async clusterSemanticallySimilarActions(actions: string[]): Promise<string[][]> {
+  private clusterWithPrecomputedSimilarity(
+    actions: string[],
+    similarityMatrix: number[][]
+  ): string[][] {
+    if (actions.length === 0) return [];
+    if (actions.length === 1) return [actions];
+
     const clusters: string[][] = [];
     const processed = new Set<number>();
 
@@ -759,8 +772,8 @@ export class Sentinel {
       for (let j = i + 1; j < actions.length; j++) {
         if (processed.has(j)) continue;
 
-        const similarity = await this.semanticSimilarity(actions[i], actions[j]);
-        if (similarity > 0.7) {
+        // Use precomputed similarity instead of individual model call
+        if (similarityMatrix[i][j] > 0.7) {
           cluster.push(actions[j]);
           processed.add(j);
         }
@@ -881,11 +894,16 @@ export class Sentinel {
   }
 
   /**
-   * Detect cyclical patterns in action sequences
+   * PERFORMANCE OPTIMIZED: Detect cyclical patterns using precomputed similarity matrix
    */
-  private async detectCyclicalPatterns(actions: string[]): Promise<number> {
+  private async detectCyclicalPatterns(
+    actions: string[],
+    similarityMatrix?: number[][]
+  ): Promise<number> {
     if (actions.length < 4) return 0;
 
+    // Use existing matrix or compute once if not provided
+    const matrix = similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions));
     let maxCyclicity = 0;
 
     // Check for cycles of length 2 to actions.length/2
@@ -896,8 +914,8 @@ export class Sentinel {
       for (let i = 0; i < actions.length - cycleLen; i++) {
         if (i + cycleLen < actions.length) {
           comparisons++;
-          const similarity = await this.semanticSimilarity(actions[i], actions[i + cycleLen]);
-          if (similarity > 0.7) {
+          // Use precomputed similarity instead of individual model call
+          if (matrix[i][i + cycleLen] > 0.7) {
             matches++;
           }
         }
@@ -913,19 +931,25 @@ export class Sentinel {
   }
 
   /**
-   * Detect oscillation patterns (A-B-A-B)
+   * PERFORMANCE OPTIMIZED: Detect oscillation patterns using precomputed similarity matrix
    */
-  private async detectOscillationPatterns(actions: string[]): Promise<number> {
+  private async detectOscillationPatterns(
+    actions: string[],
+    similarityMatrix?: number[][]
+  ): Promise<number> {
     if (actions.length < 4) return 0;
 
+    // Use existing matrix or compute once if not provided
+    const matrix = similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions));
     let oscillations = 0;
     let checks = 0;
 
     for (let i = 0; i < actions.length - 3; i++) {
       checks++;
-      const sim1 = await this.semanticSimilarity(actions[i], actions[i + 2]);
-      const sim2 = await this.semanticSimilarity(actions[i + 1], actions[i + 3]);
-      const sim3 = await this.semanticSimilarity(actions[i], actions[i + 1]);
+      // Use precomputed similarities instead of individual model calls
+      const sim1 = matrix[i][i + 2];
+      const sim2 = matrix[i + 1][i + 3];
+      const sim3 = matrix[i][i + 1];
 
       if (sim1 > 0.7 && sim2 > 0.7 && sim3 < 0.7) {
         oscillations++;
@@ -1124,61 +1148,90 @@ export class Sentinel {
   }
 
   /**
-   * Calculate semantic variation using the semantic analyzer
+   * PERFORMANCE OPTIMIZED: Calculate semantic variation using fast embedding-based diversity
    */
-  private async calculateSemanticVariation(actions: string[]): Promise<number> {
+  private async calculateSemanticVariation(
+    actions: string[],
+    similarityMatrix?: number[][]
+  ): Promise<number> {
     if (actions.length < 4) return 0.5;
 
-    const featurePromises = actions.map((action) =>
-      semanticAnalyzer.extractSemanticFeatures(action)
-    );
-    const features = await Promise.all(featurePromises);
+    // Use existing matrix or compute if not provided
+    const matrix = similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions));
 
-    // Calculate intent diversity
-    const uniqueIntents = new Set(features.flatMap((f) => f.intents));
-    const intentDiversity = uniqueIntents.size / Math.min(actions.length, 10);
+    // Calculate diversity based on average pairwise similarity
+    let totalSimilarity = 0;
+    let comparisons = 0;
 
-    // Calculate sentiment variation
-    const sentiments = features.map((f) => f.sentiment);
-    const uniqueSentiments = new Set(sentiments);
-    const sentimentVariation = uniqueSentiments.size / 3;
+    for (let i = 0; i < actions.length; i++) {
+      for (let j = i + 1; j < actions.length; j++) {
+        totalSimilarity += matrix[i][j];
+        comparisons++;
+      }
+    }
 
-    // Calculate temporal evolution
-    const midPoint = Math.floor(features.length / 2);
-    const firstHalf = features.slice(0, midPoint);
-    const secondHalf = features.slice(midPoint);
+    const avgSimilarity = comparisons > 0 ? totalSimilarity / comparisons : 0;
 
-    const firstHalfIntents = new Set(firstHalf.flatMap((f) => f.intents));
-    const secondHalfIntents = new Set(secondHalf.flatMap((f) => f.intents));
+    // High average similarity = low variation, low similarity = high variation
+    const variation = 1 - avgSimilarity;
 
-    const evolutionScore =
-      firstHalf.length > 0 && secondHalf.length > 0
-        ? Math.abs(
-            firstHalfIntents.size / firstHalf.length - secondHalfIntents.size / secondHalf.length
-          )
-        : 0;
+    // Calculate temporal evolution by comparing first and second half
+    if (actions.length >= 8) {
+      const midPoint = Math.floor(actions.length / 2);
+      let firstHalfSim = 0;
+      let secondHalfSim = 0;
+      let firstHalfComps = 0;
+      let secondHalfComps = 0;
 
-    const variationScore = intentDiversity * 0.6 + sentimentVariation * 0.2 + evolutionScore * 0.2;
+      // Average similarity within first half
+      for (let i = 0; i < midPoint; i++) {
+        for (let j = i + 1; j < midPoint; j++) {
+          firstHalfSim += matrix[i][j];
+          firstHalfComps++;
+        }
+      }
 
-    return Math.max(0, Math.min(1, variationScore));
+      // Average similarity within second half
+      for (let i = midPoint; i < actions.length; i++) {
+        for (let j = i + 1; j < actions.length; j++) {
+          secondHalfSim += matrix[i][j];
+          secondHalfComps++;
+        }
+      }
+
+      const firstAvg = firstHalfComps > 0 ? firstHalfSim / firstHalfComps : 0;
+      const secondAvg = secondHalfComps > 0 ? secondHalfSim / secondHalfComps : 0;
+      const evolution = Math.abs(firstAvg - secondAvg);
+
+      return Math.max(0, Math.min(1, variation * 0.8 + evolution * 0.2));
+    }
+
+    return Math.max(0, Math.min(1, variation));
   }
 
   /**
-   * Check for progress indicators using semantic analysis
+   * PERFORMANCE OPTIMIZED: Check for progress indicators using batch processing
    */
   private async checkProgressIndicators(recentActions: string[]): Promise<boolean> {
     if (this.config.progress_indicators.length === 0) {
       return false;
     }
 
-    for (const action of recentActions) {
-      for (const indicator of this.config.progress_indicators) {
-        const similarity = await semanticAnalyzer.calculateSemanticSimilarity(action, indicator);
-        if (similarity.similarity > 0.7) {
+    // Batch compute similarities between all actions and all indicators
+    const allTexts = [...recentActions, ...this.config.progress_indicators];
+    const similarityMatrix = await semanticAnalyzer.computeSimilarityMatrix(allTexts);
+
+    const actionCount = recentActions.length;
+
+    // Check if any action is similar to any progress indicator
+    for (let i = 0; i < actionCount; i++) {
+      for (let j = actionCount; j < allTexts.length; j++) {
+        if (similarityMatrix[i][j] > 0.7) {
           return true;
         }
       }
     }
+
     return false;
   }
 }

@@ -51,6 +51,20 @@ jest.mock('../src/semantic-analyzer', () => ({
       confidence: 0.8,
       reasoning: 'Semantic similarity analysis',
     })),
+    getBatchEmbeddings: jest.fn(
+      async (texts) => texts.map(() => Array(384).fill(0.5)) // Mock 384-dim embeddings
+    ),
+    computeSimilarityMatrix: jest.fn(async (texts) => {
+      const n = texts.length;
+      return Array(n)
+        .fill()
+        .map(
+          (_, i) =>
+            Array(n)
+              .fill()
+              .map((_, j) => (i === j ? 1.0 : 0.7)) // Mock similarity matrix
+        );
+    }),
     isReady: jest.fn(() => true),
   },
 }));
