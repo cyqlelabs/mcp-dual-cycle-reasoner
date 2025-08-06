@@ -41,7 +41,9 @@ export class SemanticAnalyzer {
       this.embeddingModel = await pipeline<'feature-extraction'>(
         'feature-extraction',
         'Xenova/all-MiniLM-L6-v2',
-        { cache_dir: process.env.HF_HUB_CACHE || '.hf_cache' }
+        {
+          cache_dir: process.env.HF_HUB_CACHE || '.hf_cache',
+        }
       );
 
       // Initialize NLI model for precision tasks (lazy loaded)
@@ -200,25 +202,40 @@ export class SemanticAnalyzer {
       }
     }
 
-    // Batch process uncached texts
+    // Process uncached texts individually for consistency (performance preserved via caching)
     if (uncachedTexts.length > 0) {
-      const batchResult = await this.embeddingModel(uncachedTexts);
+      const batchEmbeddings: number[][] = [];
 
-      // Handle tensor result types safely
-      let batchEmbeddings: any[];
-      if (Array.isArray(batchResult)) {
-        batchEmbeddings = batchResult;
-      } else {
-        // Single result - wrap in array
-        batchEmbeddings = [batchResult];
+      // Process texts individually to ensure consistent embedding dimensions
+      for (const text of uncachedTexts) {
+        const singleResult = await this.embeddingModel(text, {
+          pooling: 'mean',
+          normalize: true,
+        });
+
+        if (singleResult && singleResult.data) {
+          const embedding = Array.from(singleResult.data) as number[];
+
+          // Validate that we're getting the expected 384-dimensional embeddings
+          if (embedding.length !== 384) {
+            console.error(
+              `Unexpected embedding dimension: ${embedding.length} (expected 384) for text: "${text.slice(0, 50)}..."`
+            );
+            console.error('Model output shape:', singleResult.dims);
+            throw new Error(
+              `Invalid embedding dimension: ${embedding.length}. Expected 384 for all-MiniLM-L6-v2.`
+            );
+          }
+
+          batchEmbeddings.push(embedding);
+        } else {
+          throw new Error(`Unable to process embedding for text: ${text.slice(0, 50)}...`);
+        }
       }
 
       for (let i = 0; i < uncachedTexts.length; i++) {
-        // Convert tensor/array to number array
-        const rawEmbedding = batchEmbeddings[i];
-        const embedding = Array.isArray(rawEmbedding)
-          ? (rawEmbedding as number[])
-          : (Array.from(rawEmbedding.data) as number[]);
+        // Embeddings are already converted to number arrays above
+        const embedding = batchEmbeddings[i] as number[];
 
         const originalIndex = uncachedIndices[i];
         embeddings[originalIndex] = embedding;
@@ -242,7 +259,14 @@ export class SemanticAnalyzer {
    */
   private cosineSimilarity(vec1: number[], vec2: number[]): number {
     if (vec1.length !== vec2.length) {
-      throw new Error('Vectors must have the same length');
+      console.error('Vector dimension mismatch:', {
+        vec1Length: vec1.length,
+        vec2Length: vec2.length,
+        expected: 384, // all-MiniLM-L6-v2 should return 384-dim vectors
+      });
+      throw new Error(
+        `Vector dimension mismatch: ${vec1.length} vs ${vec2.length}. Expected 384-dimensional embeddings.`
+      );
     }
 
     let dotProduct = 0;
@@ -300,11 +324,21 @@ export class SemanticAnalyzer {
     sentiment: 'positive' | 'negative' | 'neutral';
     confidence: number;
   }> {
-    if (!this.isInitialized || !this.nliClassifier) {
+    if (!this.isInitialized) {
       throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
     }
 
     try {
+      // Lazy load NLI classifier when needed for precision tasks
+      if (!this.nliClassifier) {
+        console.log('Loading NLI model for semantic feature extraction...');
+        this.nliClassifier = await pipeline<'zero-shot-classification'>(
+          'zero-shot-classification',
+          'MoritzLaurer/deberta-v3-base-zeroshot-v1.1-all-33',
+          { cache_dir: process.env.HF_HUB_CACHE || '.hf_cache' }
+        );
+      }
+
       // Use custom intents if provided, otherwise use generic ones
       const intents = customIntents || [
         'performing action',
@@ -349,7 +383,7 @@ export class SemanticAnalyzer {
   }
 
   isReady(): boolean {
-    return this.isInitialized && this.nliClassifier !== null;
+    return this.isInitialized;
   }
 }
 

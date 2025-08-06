@@ -90,9 +90,15 @@ describe('Live MCP Server Integration', () => {
         });
 
         // Parse result and break if intervention is required
-        result = JSON.parse((processResult as any).content[0].text);
-        if (result.intervention_required) {
-          break;
+        const responseText = (processResult as any).content[0].text;
+        try {
+          result = JSON.parse(responseText);
+          if (result.intervention_required) {
+            break;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse response:', responseText);
+          throw parseError;
         }
       }
 
@@ -138,7 +144,7 @@ describe('Live MCP Server Integration', () => {
       expect(cases.length).toBeGreaterThan(0);
       expect(cases[0]).toHaveProperty('problem_description');
       expect(cases[0]).toHaveProperty('solution');
-    });
+    }, 15000); // 15 second timeout for NLP processing
   });
 
   describe('Loop Detection Live Tests', () => {
@@ -168,9 +174,15 @@ describe('Live MCP Server Integration', () => {
         });
 
         // Break if intervention is required
-        const result = JSON.parse((processResult as any).content[0].text);
-        if (result.intervention_required) {
-          break;
+        const responseText = (processResult as any).content[0].text;
+        try {
+          const result = JSON.parse(responseText);
+          if (result.intervention_required) {
+            break;
+          }
+        } catch (parseError) {
+          console.error('Failed to parse loop detection response:', responseText);
+          throw parseError;
         }
       }
 
@@ -205,10 +217,8 @@ describe('Live MCP Server Integration', () => {
       expect(loopResult.type).toBeDefined();
       expect(loopResult.confidence).toBeGreaterThan(0);
       expect(loopResult.details).toBeDefined();
-
     }, 15000);
   });
-
 
   describe('Configuration Live Tests', () => {
     it('should configure detection parameters in live environment', async () => {
@@ -262,7 +272,14 @@ describe('Live MCP Server Integration', () => {
         },
       });
 
-      const statisticalLoop = JSON.parse((statisticalResult as any).content[0].text);
+      const statisticalResponseText = (statisticalResult as any).content[0].text;
+      let statisticalLoop;
+      try {
+        statisticalLoop = JSON.parse(statisticalResponseText);
+      } catch (parseError) {
+        console.error('Failed to parse statistical detection response:', statisticalResponseText);
+        throw parseError;
+      }
       expect(statisticalLoop).toBeDefined();
 
       // Test pattern detection
