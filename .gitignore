@@ -43,3 +43,4 @@ pids/
 # Temporary folders
 tmp/
 temp/
+.hf_cache

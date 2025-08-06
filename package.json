@@ -14,7 +14,9 @@
     "test": "jest",
     "test:live": "jest test/live-server.test.ts --testPathIgnorePatterns=[] --verbose --silent=false",
     "lint": "eslint src --ext .ts",
-    "format": "prettier --write src/**/*.ts"
+    "format": "prettier --write src/**/*.ts",
+    "download-models": "node scripts/download-models.js",
+    "postinstall": "npm run download-models"
   },
   "keywords": [
     "mcp",
