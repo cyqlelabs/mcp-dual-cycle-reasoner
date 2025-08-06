@@ -285,6 +285,12 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             interventionRequired: result.intervention_required,
           });
 
+          if (result.loop_detected) {
+            result.loop_detected.confidence = parseFloat(
+              (result.loop_detected.confidence).toFixed(2)
+            );
+          }
+
           return JSON.stringify(result, null, 2);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
@@ -360,6 +366,10 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             confidence: result.confidence,
             type: result.type,
           });
+
+          if (result.detected) {
+            result.confidence = parseFloat((result.confidence).toFixed(2));
+          }
 
           return JSON.stringify(result, null, 2);
         } catch (error) {
