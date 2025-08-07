@@ -1,6 +1,6 @@
 {
   "name": "@cyqlelabs/mcp-dual-cycle-reasoner",
-  "version": "1.4.3",
+  "version": "1.4.4",
   "description": "MCP server implementing dual-cycle metacognitive reasoning framework for autonomous agents",
   "type": "module",
   "main": "build/fastmcp-server.js",
