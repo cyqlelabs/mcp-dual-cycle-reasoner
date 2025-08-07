@@ -99,7 +99,6 @@ export const CaseSchema = z.object({
     .default(() => Date.now()),
   // Enhanced metadata for better retrieval
   context: z.string().optional(),
-  goal_type: z.string().optional(),
   difficulty_level: z.enum(['low', 'medium', 'high']).optional(),
   success_rate: z.number().min(0).max(1).optional(),
   usage_count: z.number().min(0).default(0),
@@ -144,7 +143,6 @@ export const StoreExperienceInputSchema = z.object({
   solution: z.string().describe(DESCRIPTIONS.SOLUTION),
   outcome: z.boolean().describe(DESCRIPTIONS.OUTCOME),
   context: z.string().optional().describe('The context in which this case occurred'),
-  goal_type: z.string().optional().describe('The type of goal this case relates to'),
   difficulty_level: z
     .enum(['low', 'medium', 'high'])
     .optional()
@@ -155,7 +153,6 @@ export const RetrieveSimilarCasesInputSchema = z.object({
   problem_description: z.string().describe(DESCRIPTIONS.PROBLEM_DESCRIPTION),
   max_results: z.number().default(5).describe(DESCRIPTIONS.MAX_RESULTS),
   context_filter: z.string().optional().describe('Filter cases by context'),
-  goal_type_filter: z.string().optional().describe('Filter cases by goal type'),
   difficulty_filter: z
     .enum(['low', 'medium', 'high'])
     .optional()

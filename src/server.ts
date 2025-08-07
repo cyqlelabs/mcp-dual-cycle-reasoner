@@ -412,7 +412,6 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             solution: validatedArgs.solution,
             outcome: validatedArgs.outcome,
             context: validatedArgs.context,
-            goal_type: validatedArgs.goal_type,
             difficulty_level: validatedArgs.difficulty_level,
           };
 
@@ -463,7 +462,6 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
           const filters = {
             context_filter: validatedArgs.context_filter,
-            goal_type_filter: validatedArgs.goal_type_filter,
             difficulty_filter: validatedArgs.difficulty_filter,
             outcome_filter: validatedArgs.outcome_filter,
             min_similarity: validatedArgs.min_similarity,

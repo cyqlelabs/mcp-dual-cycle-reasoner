@@ -198,20 +198,6 @@ export class DualCycleEngine {
   }
 
   /**
-   * Extract a summary of the current context for case storage
-   */
-  private extractContextSummary(trace: CognitiveTrace): string {
-    const recentActions = this.accumulatedActions.slice(-3).join(' -> ');
-    const currentContext = trace.current_context || 'unknown';
-
-    return (
-      `Goal: ${trace.goal.substring(0, 50)}..., ` +
-      `Recent actions: ${recentActions}, ` +
-      `Context: ${currentContext}`
-    );
-  }
-
-  /**
    * Get current monitoring status and statistics
    */
   getMonitoringStatus(): {
@@ -248,7 +234,6 @@ export class DualCycleEngine {
     maxResults: number = 5,
     filters: {
       context_filter?: string;
-      goal_type_filter?: string;
       difficulty_filter?: 'low' | 'medium' | 'high';
       outcome_filter?: boolean;
       min_similarity?: number;

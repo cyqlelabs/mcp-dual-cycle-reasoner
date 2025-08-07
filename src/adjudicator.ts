@@ -109,7 +109,6 @@ export class Adjudicator {
     maxResults: number = 5,
     filters: {
       context_filter?: string;
-      goal_type_filter?: string;
       difficulty_filter?: 'low' | 'medium' | 'high';
       outcome_filter?: boolean;
       min_similarity?: number;
@@ -135,12 +134,6 @@ export class Adjudicator {
           (case_) =>
             case_.context?.includes(filters.context_filter!) ||
             case_.problem_description.includes(filters.context_filter!)
-        );
-      }
-
-      if (filters.goal_type_filter) {
-        filteredCases = filteredCases.filter(
-          (case_) => case_.goal_type === filters.goal_type_filter
         );
       }
 
@@ -540,14 +533,6 @@ export class Adjudicator {
    * Update case index for faster retrieval
    */
   private updateIndex(case_: Case): void {
-    // Index by goal type
-    if (case_.goal_type) {
-      if (!this.caseIndex.has(case_.goal_type)) {
-        this.caseIndex.set(case_.goal_type, []);
-      }
-      this.caseIndex.get(case_.goal_type)!.push(case_);
-    }
-
     // Index by context
     if (case_.context) {
       if (!this.caseIndex.has(case_.context)) {

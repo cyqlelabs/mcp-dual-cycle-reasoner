@@ -169,7 +169,6 @@ Store a case for future case-based reasoning with enhanced metadata and quality 
   solution: string;
   outcome: boolean;
   context?: string;
-  goal_type?: string;
   difficulty_level?: "low" | "medium" | "high";
 }
 ```
@@ -183,7 +182,6 @@ Retrieve similar cases using advanced semantic matching and filtering.
   problem_description: string;
   max_results?: number;
   context_filter?: string;
-  goal_type_filter?: string;
   difficulty_filter?: "low" | "medium" | "high";
   outcome_filter?: boolean;
   min_similarity?: number;
@@ -272,7 +270,6 @@ await store_experience({
   solution: 'Check email format and retry with valid email address',
   outcome: true,
   context: 'registration_form',
-  goal_type: 'user_registration',
   difficulty_level: 'medium',
 });
 

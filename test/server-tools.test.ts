@@ -308,7 +308,6 @@ describe('MCP Server Tools Tests', () => {
         solution: 'Multi-step solution',
         outcome: true,
         context: 'web_navigation',
-        goal_type: 'navigation',
         difficulty_level: 'medium',
       };
 
@@ -387,7 +386,6 @@ describe('MCP Server Tools Tests', () => {
       const filters = {
         outcome_filter: true,
         context_filter: undefined,
-        goal_type_filter: undefined,
         difficulty_filter: undefined,
         min_similarity: undefined,
       };
