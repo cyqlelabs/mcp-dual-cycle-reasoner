@@ -68,11 +68,19 @@ export const LoopTypeSchema = z.enum([
   'progress_stagnation',
 ]);
 
+export const LoopDetectionDetailsSchema = z.object({
+  dominant_method: z.string().optional(),
+  anomaly_score: z.number().optional(),
+  actions_involved_count: z.number().optional(),
+  recent_actions_count: z.number().optional(),
+  metrics: z.record(z.string(), z.any()).optional(),
+});
+
 export const LoopDetectionResultSchema = z.object({
   detected: z.boolean(),
   type: z.optional(LoopTypeSchema),
   confidence: z.number(),
-  details: z.string(),
+  details: LoopDetectionDetailsSchema,
   actions_involved: z.array(z.string()).optional(),
   statistical_metrics: z
     .object({

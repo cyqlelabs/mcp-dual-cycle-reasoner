@@ -89,7 +89,11 @@ export class Sentinel {
       !Array.isArray(trace.recent_actions) ||
       trace.recent_actions.length === 0
     ) {
-      return { detected: false, confidence: 0, details: 'No action history available' };
+      return {
+        detected: false,
+        confidence: 0,
+        details: {},
+      };
     }
 
     // Use configurable minimum actions threshold to avoid false positives on legitimate exploration
@@ -101,7 +105,7 @@ export class Sentinel {
       return {
         detected: false,
         confidence: 0,
-        details: `Insufficient action history: ${trace.recent_actions.length}/${minActionsForDetection} required`,
+        details: {},
       };
     }
 
@@ -189,7 +193,13 @@ export class Sentinel {
         detected: true,
         type: 'action_repetition',
         confidence: Math.min(0.95, combinedAnomalyScore + 0.3),
-        details: `Loop detected via ${dominantMethod.method}: ${(combinedAnomalyScore * 100).toFixed(1)}% anomaly score. Semantic: ${(anomalyScores.semantic_repetition * 100).toFixed(1)}%, Parameter: ${(anomalyScores.parameter_repetition * 100).toFixed(1)}%, Exact: ${(anomalyScores.exact_repetition * 100).toFixed(1)}%, Cyclical: ${(anomalyScores.cyclical_pattern * 100).toFixed(1)}% (${specificActionsInvolved.length}/${recentActions.length} actions involved)`,
+        details: {
+          dominant_method: dominantMethod.method,
+          anomaly_score: combinedAnomalyScore,
+          actions_involved_count: specificActionsInvolved.length,
+          recent_actions_count: recentActions.length,
+          metrics: anomalyScores,
+        },
         actions_involved: specificActionsInvolved,
         statistical_metrics: {
           entropy_score: anomalyScores.statistical_anomaly,
@@ -203,7 +213,10 @@ export class Sentinel {
     return {
       detected: false,
       confidence: 1 - combinedAnomalyScore,
-      details: `Action diversity acceptable: ${(combinedAnomalyScore * 100).toFixed(1)}% combined anomaly score`,
+      details: {
+        anomaly_score: combinedAnomalyScore,
+        metrics: anomalyScores,
+      },
     };
   }
 
@@ -217,7 +230,11 @@ export class Sentinel {
     windowSize: number = 10
   ): LoopDetectionResult {
     if (!trace.current_context) {
-      return { detected: false, confidence: 0, details: 'No state context available' };
+      return {
+        detected: false,
+        confidence: 0,
+        details: {},
+      };
     }
 
     // Use same action history requirements as detectActionAnomalies for consistency
@@ -229,7 +246,7 @@ export class Sentinel {
       return {
         detected: false,
         confidence: 0,
-        details: `Insufficient action history: ${trace.recent_actions.length}/${minActionsForDetection} required`,
+        details: {},
       };
     }
 
@@ -286,7 +303,14 @@ export class Sentinel {
         detected: true,
         type: 'state_invariance',
         confidence,
-        details: `State revisitation detected: ${totalSimilarStates} similar states found (${exactOccurrences} exact, ${semanticSimilarStates} semantic). Features: ${stateFeatures.slice(0, 3).join(', ')}`,
+        details: {
+          metrics: {
+            total_similar_states: totalSimilarStates,
+            exact_occurrences: exactOccurrences,
+            semantic_similar_states: semanticSimilarStates,
+            features: stateFeatures.slice(0, 3).join(', '),
+          },
+        },
         actions_involved: stateInvarianceActions,
       };
     }
@@ -309,7 +333,11 @@ export class Sentinel {
         detected: true,
         type: 'state_invariance',
         confidence: 0.8,
-        details: `State convergence detected: ${(convergenceScore * 100).toFixed(1)}% convergence score indicating minimal progress`,
+        details: {
+          metrics: {
+            convergence_score: convergenceScore,
+          },
+        },
         actions_involved: convergenceActions,
       };
     }
@@ -317,7 +345,11 @@ export class Sentinel {
     return {
       detected: false,
       confidence: 0.8,
-      details: `State appears novel, ${totalSimilarStates} similar states found`,
+      details: {
+        metrics: {
+          total_similar_states: totalSimilarStates,
+        },
+      },
     };
   }
 
@@ -342,7 +374,7 @@ export class Sentinel {
       return {
         detected: false,
         confidence: 0,
-        details: `Insufficient action history: ${trace.recent_actions?.length || 0}/${minActionsForDetection} required`,
+        details: {},
       };
     }
 
@@ -397,7 +429,13 @@ export class Sentinel {
         detected: true,
         type: 'progress_stagnation',
         confidence,
-        details: `Critical action diversity drop: ${(longDiversity * 100).toFixed(1)}% unique actions (threshold: ${(diversityThreshold * 100).toFixed(1)}%, ${longWindow.length} actions analyzed)`,
+        details: {
+          metrics: {
+            diversity: longDiversity,
+            threshold: diversityThreshold,
+            actions_analyzed: longWindow.length,
+          },
+        },
         actions_involved: lowDiversityActions,
       };
     }
@@ -416,16 +454,19 @@ export class Sentinel {
         .filter(([, count]) => count > 1)
         .map(([action]) => action);
 
-      const details =
-        `Multi-factor stagnation: Score=${(stagnationScore * 100).toFixed(1)}%, ` +
-        `Diversity=${(longDiversity * 100).toFixed(1)}%, Velocity=${(actionChangeVelocity * 100).toFixed(1)}%, ` +
-        `Variation=${(semanticVariation * 100).toFixed(1)}%, Threshold=${(dynamicThreshold * 100).toFixed(1)}%`;
-
       return {
         detected: true,
         type: 'progress_stagnation',
         confidence,
-        details,
+        details: {
+          metrics: {
+            stagnation_score: stagnationScore,
+            diversity: longDiversity,
+            velocity: actionChangeVelocity,
+            variation: semanticVariation,
+            threshold: dynamicThreshold,
+          },
+        },
         actions_involved: stagnationActions,
       };
     }
@@ -433,7 +474,13 @@ export class Sentinel {
     return {
       detected: false,
       confidence: 0.8,
-      details: `Progress healthy: Diversity=${(longDiversity * 100).toFixed(1)}%, StagnationScore=${(stagnationScore * 100).toFixed(1)}%, Velocity=${(actionChangeVelocity * 100).toFixed(1)}%`,
+      details: {
+        metrics: {
+          diversity: longDiversity,
+          stagnation_score: stagnationScore,
+          velocity: actionChangeVelocity,
+        },
+      },
     };
   }
 
@@ -465,7 +512,13 @@ export class Sentinel {
           return {
             detected: false,
             confidence: avgConfidence,
-            details: `No loops detected by any method. ${results.map((r) => r.details).join('; ')}`,
+            details: {
+              metrics: {
+                action_anomaly_score: actionResult.details.anomaly_score,
+                state_invariance_confidence: stateResult.confidence,
+                progress_stagnation_score: progressResult.details.metrics?.stagnation_score,
+              },
+            },
           };
         }
 
@@ -476,7 +529,9 @@ export class Sentinel {
 
         return {
           ...bestResult,
-          details: `${bestResult.details} (${positiveResults.length}/${results.length} methods agreed)`,
+          details: {
+            ...bestResult.details,
+          },
         };
     }
   }

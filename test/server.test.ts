@@ -235,7 +235,6 @@ describe('DualCycleEngine with Fixtures', () => {
       expect(result.loop_detected?.detected).toBe(true);
       expect(result.loop_detected?.confidence).toBeGreaterThan(0.5);
       expect(result.loop_detected?.details).toBeDefined();
-      expect(result.explanation).toBeDefined();
     });
 
     it('should confirm complex scenario triggers state invariance detection', async () => {
@@ -294,7 +293,7 @@ describe('DualCycleEngine with Fixtures', () => {
 
       expect(loopResult.detected).toBe(true);
       expect(loopResult.type).toBe('progress_stagnation');
-      expect(loopResult.details).toContain('diversity');
+      expect(loopResult.details.metrics.diversity).toBeDefined();
       expect(loopResult.actions_involved).toBeDefined();
       expect(loopResult.actions_involved!.length).toBeGreaterThan(0);
       expect(loopResult.actions_involved).toEqual(

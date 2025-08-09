@@ -133,6 +133,23 @@ Main monitoring function—processes cognitive trace updates from the agent.
 }
 ```
 
+**Return Payload**:
+
+Returns a JSON object indicating if intervention is required and details about any detected loop.
+
+```json
+{
+  "intervention_required": true,
+  "loop_detected": {
+    "detected": true,
+    "type": "action_repetition",
+    "confidence": 0.85,
+    "details": "Loop detected via parameter_repetition: 57% anomaly score...",
+    "actions_involved": ["click_submit_button"]
+  }
+}
+```
+
 #### `stop_monitoring`
 
 Stop metacognitive monitoring and get a session summary.
@@ -155,6 +172,29 @@ Detect if the agent is stuck in a loop using various strategies.
 }
 ```
 
+**Return Payload**:
+
+Returns a `LoopDetectionResult` object as a JSON string.
+
+```json
+{
+  "detected": true,
+  "type": "action_repetition",
+  "confidence": 0.85,
+  "details": {
+    "dominant_method": "parameter_repetition",
+    "anomaly_score": 0.57,
+    "actions_involved_count": 1,
+    "recent_actions_count": 10,
+    "metrics": {
+      "semantic_repetition": 0.6,
+      "parameter_repetition": 0.8
+    }
+  },
+  "actions_involved": ["click_submit_button"]
+}
+```
+
 #### `configure_detection`
 
 Configure loop detection parameters and domain-specific progress indicators.
@@ -163,12 +203,12 @@ Configure loop detection parameters and domain-specific progress indicators.
 
 ```typescript
 {
-  progress_indicators?: string[];
-  min_actions_for_detection?: number;
-  alternating_threshold?: number;
-  repetition_threshold?: number;
-  progress_threshold_adjustment?: number;
-  semantic_intents?: string[];
+  progress_indicators?: string[]; // default: []
+  min_actions_for_detection?: number; // default: 5
+  alternating_threshold?: number; // default: 0.5
+  repetition_threshold?: number; // default: 0.4
+  progress_threshold_adjustment?: number; // default: 0.2
+  semantic_intents?: string[]; // default: []
 }
 ```
 
@@ -199,12 +239,32 @@ Retrieve similar cases using advanced semantic matching and filtering.
 ```typescript
 {
   problem_description: string;
-  max_results?: number;
+  max_results?: number; // default: 5
   context_filter?: string;
   difficulty_filter?: "low" | "medium" | "high";
   outcome_filter?: boolean;
-  min_similarity?: number;
+  min_similarity?: number; // default: 0.1
 }
+```
+
+**Return Payload**:
+
+Returns an array of `Case` objects as a JSON string.
+
+```json
+[
+  {
+    "id": "case-123",
+    "problem_description": "Form submission button not responding to clicks",
+    "solution": "Ensure all required fields are filled correctly.",
+    "outcome": true,
+    "context": "registration_form",
+    "difficulty_level": "medium",
+    "similarity_metrics": {
+      "combined_similarity": 0.92
+    }
+  }
+]
 ```
 
 ### System Tools
@@ -214,6 +274,23 @@ Retrieve similar cases using advanced semantic matching and filtering.
 Get the current monitoring status and statistics.
 
 **Input Schema**: `{}`
+
+**Return Payload**:
+
+Returns a JSON string with the current monitoring status, including `is_monitoring`, `current_goal`, `trace_length`, and `intervention_count`.
+
+```json
+{
+  "is_monitoring": true,
+  "current_goal": "Complete user registration process on website",
+  "trace_length": 15,
+  "intervention_count": 2,
+  "recent_actions": [
+    { "type": "click_submit_button", "timestamp": 1678886400000 },
+    { "type": "click_submit_button", "timestamp": 1678886401000 }
+  ]
+}
+```
 
 #### `reset_engine`
 
@@ -278,7 +355,16 @@ await process_trace_update({
 //     "detected": true,
 //     "type": "action_repetition",
 //     "confidence": 0.85,
-//     "details": "Loop detected via parameter_repetition: 57% anomaly score...",
+//     "details": {
+//       "dominant_method": "parameter_repetition",
+//       "anomaly_score": 0.57,
+//       "actions_involved_count": 1,
+//       "recent_actions_count": 10,
+//       "metrics": {
+//         "semantic_repetition": 0.6,
+//         "parameter_repetition": 0.8
+//       }
+//     },
 //     "actions_involved": ["click_submit_button"]
 //   }
 // }
@@ -309,105 +395,19 @@ const similarCases = await retrieve_similar_cases({
 
 When the `process_trace_update` tool detects a potential loop, it returns a detailed `loop_detected` object. Understanding the components of this object can help you diagnose and debug agent behavior.
 
-Here's a quick guide to the key metrics:
+Here's a quick guide to the key metrics in the `details` object:
 
-- **`anomaly score`**: An overall score (0-100%) representing the confidence that the agent's recent actions are part of a loop. It's a weighted average of multiple detection methods.
-- **`confidence`**: The final confidence score (0.0-1.0) that a loop has been detected. It is derived from the `anomaly score`.
-- **`Semantic`**: The percentage of recent actions that are semantically similar to each other (e.g., `click_button_A` and `click_button_B`).
-- **`Parameter`**: The percentage of similarity between the parameters of semantically similar actions.
-- **`Exact`**: The percentage of recent actions that are exact, character-for-character duplicates.
-- **`Cyclical`**: The score (0-100%) indicating the presence of repeating sequences of actions (e.g., A, B, C, A, B, C).
-
-The `details` string also contains two important metrics:
-
-- **`(X/Y actions involved)`**: Shows how many of the last Y actions were identified as being part of the detected loop.
-- **`(X/Y methods agreed)`**: Indicates how many of the three primary detection strategies (`Action Anomalies`, `State Invariance`, `Progress Stagnation`) agreed that a loop was present.
-
-## Contributing
-
-Contributions are welcome! Please read the contributing guidelines and ensure all tests pass before submitting a pull request.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-### 1. Initial Setup and Configuration
-
-```typescript
-// Configure detection parameters for your domain
-await configure_detection({
-  progress_indicators: ['page_loaded', 'form_submitted', 'data_extracted'],
-  min_actions_for_detection: 3,
-  alternating_threshold: 0.6,
-  repetition_threshold: 0.3,
-  semantic_intents: [
-    'navigating to page',
-    'clicking element',
-    'filling form field',
-    'submitting form',
-    'validating input',
-    'handling popup',
-    'extracting data',
-    'waiting for response',
-  ],
-});
-
-// Start monitoring the agent's goal
-await start_monitoring({
-  goal: 'Complete user registration process on website',
-});
-```
-
-### 2. Monitoring Agent Actions
-
-```typescript
-// Monitor each action the agent takes
-await process_trace_update({
-  last_action: 'click_signup_button',
-  current_context: 'homepage',
-  goal: 'Complete user registration process on website',
-});
-
-// ... agent continues actions ...
-
-// Agent gets stuck clicking submit repeatedly
-await process_trace_update({
-  last_action: 'click_submit_button',
-  current_context: 'registration_form',
-  goal: 'Complete user registration process on website',
-});
-// Returns: {
-//   "intervention_required": true,
-//   "loop_detected": {
-//     "detected": true,
-//     "type": "action_repetition",
-//     "confidence": 0.85,
-//     "details": "Loop detected via parameter_repetition: 57% anomaly score...",
-//     "actions_involved": ["click_submit_button"]
-//   }
-// }
-```
-
-### 3. Storing and Retrieving Experiences
-
-```typescript
-// Store a successful experience
-await store_experience({
-  problem_description: 'Email validation error blocking form submission',
-  solution: 'Check email format and retry with valid email address',
-  outcome: true,
-  context: 'registration_form',
-  difficulty_level: 'medium',
-});
-
-// When a loop is detected, retrieve similar cases for recovery
-const similarCases = await retrieve_similar_cases({
-  problem_description: 'Form submission button not responding to clicks',
-  max_results: 3,
-  context_filter: 'registration_form',
-  outcome_filter: true,
-});
-```
+- **`dominant_method`**: The primary method that triggered the loop detection (e.g., `semantic_repetition`, `state_invariance`).
+- **`anomaly_score`**: An overall score (0-1) representing the confidence that the agent's recent actions are part of a loop. It's a weighted average of multiple detection methods.
+- **`actions_involved_count`**: The number of recent actions identified as being part of the detected loop.
+- **`recent_actions_count`**: The total number of recent actions analyzed.
+- **`metrics`**: An object containing the raw scores from the different detection methods, such as:
+  - **`semantic_repetition`**: The percentage of recent actions that are semantically similar to each other.
+  - **`parameter_repetition`**: The percentage of similarity between the parameters of semantically similar actions.
+  - **`exact_repetition`**: The percentage of recent actions that are exact, character-for-character duplicates.
+  - **`cyclical_pattern`**: The score (0-1) indicating the presence of repeating sequences of actions.
+  - **`oscillation_pattern`**: The score (0-1) indicating the presence of oscillating (back-and-forth) actions.
+  - **`alternating_pattern`**: The score (0-1) indicating the presence of alternating action patterns.
 
 ## Contributing
 
@@ -416,4 +416,3 @@ Contributions are welcome! Please read the contributing guidelines and ensure al
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
