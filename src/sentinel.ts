@@ -189,7 +189,7 @@ export class Sentinel {
         detected: true,
         type: 'action_repetition',
         confidence: Math.min(0.95, combinedAnomalyScore + 0.3),
-        details: `Loop detected via ${dominantMethod.method}: ${(combinedAnomalyScore * 100).toFixed(1)}% anomaly score. Semantic: ${(anomalyScores.semantic_repetition * 100).toFixed(1)}%, Parameter: ${(anomalyScores.parameter_repetition * 100).toFixed(1)}%, Exact: ${(anomalyScores.exact_repetition * 100).toFixed(1)}%, Cyclical: ${(anomalyScores.cyclical_pattern * 100).toFixed(1)}% (${specificActionsInvolved.length}/${recentActions.length} methods agreed)`,
+        details: `Loop detected via ${dominantMethod.method}: ${(combinedAnomalyScore * 100).toFixed(1)}% anomaly score. Semantic: ${(anomalyScores.semantic_repetition * 100).toFixed(1)}%, Parameter: ${(anomalyScores.parameter_repetition * 100).toFixed(1)}%, Exact: ${(anomalyScores.exact_repetition * 100).toFixed(1)}%, Cyclical: ${(anomalyScores.cyclical_pattern * 100).toFixed(1)}% (${specificActionsInvolved.length}/${recentActions.length} actions involved)`,
         actions_involved: specificActionsInvolved,
         statistical_metrics: {
           entropy_score: anomalyScores.statistical_anomaly,
