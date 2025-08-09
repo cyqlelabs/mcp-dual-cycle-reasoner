@@ -119,7 +119,7 @@ export class Sentinel {
 
     // Extract action parameters for deeper analysis
     const actionParams = recentActions.map((action) => this.extractActionParameters(action));
-    const parameterRepetition = this.detectParameterPatterns(actionParams);
+    const parameterRepetition = this.detectParameterPatterns(recentActions, semanticClusters);
 
     // Check for exact repetition patterns (fallback for simple cases)
     const uniqueActions = new Set(recentActions);
@@ -182,8 +182,7 @@ export class Sentinel {
       const specificActionsInvolved = this.getActionsInvolvedInLoop(
         dominantMethod.method,
         recentActions,
-        semanticClusters,
-        actionParams
+        semanticClusters
       );
 
       return {
@@ -666,8 +665,7 @@ export class Sentinel {
   private getActionsInvolvedInLoop(
     dominantMethod: string,
     recentActions: string[],
-    semanticClusters: string[][],
-    actionParams: { name: string; params: string[] }[]
+    semanticClusters: string[][]
   ): string[] {
     switch (dominantMethod) {
       case 'semantic_repetition':
@@ -680,7 +678,7 @@ export class Sentinel {
 
       case 'parameter_repetition':
         // Return actions with repeated parameters using existing logic
-        return this.getParameterRepeatedActions(actionParams, recentActions);
+        return this.getParameterRepeatedActions(recentActions, semanticClusters);
 
       case 'exact_repetition':
         // Return actions that appear multiple times exactly
@@ -714,32 +712,28 @@ export class Sentinel {
    * Get actions with repeated parameters by leveraging existing parameter detection logic
    */
   private getParameterRepeatedActions(
-    actionParams: { name: string; params: string[] }[],
-    recentActions: string[]
+    recentActions: string[],
+    semanticClusters: string[][]
   ): string[] {
-    const actionGroups = new Map<string, number[]>();
-
-    // Group action indices by name
-    actionParams.forEach(({ name }, index) => {
-      if (!actionGroups.has(name)) actionGroups.set(name, []);
-      actionGroups.get(name)!.push(index);
+    const actionToParams = new Map<string, string[]>();
+    recentActions.forEach((action) => {
+      actionToParams.set(action, this.extractActionParameters(action).params);
     });
 
     const repeatedActions: string[] = [];
 
-    // For each action group, find parameters with high similarity
-    for (const [, indices] of actionGroups) {
-      if (indices.length < 2) continue;
+    // For each semantic cluster, find parameters with high similarity
+    for (const cluster of semanticClusters) {
+      if (cluster.length < 2) continue;
 
-      for (let i = 0; i < indices.length - 1; i++) {
-        for (let j = i + 1; j < indices.length; j++) {
-          const similarity = this.parameterSimilarity(
-            actionParams[indices[i]].params,
-            actionParams[indices[j]].params
-          );
+      for (let i = 0; i < cluster.length - 1; i++) {
+        for (let j = i + 1; j < cluster.length; j++) {
+          const params1 = actionToParams.get(cluster[i])!;
+          const params2 = actionToParams.get(cluster[j])!;
+          const similarity = this.parameterSimilarity(params1, params2);
           if (similarity > 0.7) {
-            repeatedActions.push(recentActions[indices[i]]);
-            repeatedActions.push(recentActions[indices[j]]);
+            repeatedActions.push(cluster[i]);
+            repeatedActions.push(cluster[j]);
           }
         }
       }
@@ -797,15 +791,12 @@ export class Sentinel {
    * Extract action name and parameters from action string
    */
   private extractActionParameters(action: string): { name: string; params: string[] } {
-    // Handle various action formats:
-    // "scroll_down(500)" -> name: "scroll_down", params: ["500"]
-    // "click_element button" -> name: "click_element", params: ["button"]
-    // "navigate_to_page" -> name: "navigate_to_page", params: []
-
+    // Handle various action formats and normalize action names by extracting underscored parameters.
+    // "click_element_by_index_index_0" -> name: "click_element_by_index", params: ["index_0"]
     const match = action.match(/^([^(]+)(?:\(([^)]*)\))?(.*)$/);
     if (!match) return { name: action, params: [] };
 
-    const name = match[1].trim();
+    const originalName = match[1].trim();
     const parenParams = match[2] ? match[2].split(',').map((p) => p.trim()) : [];
     const spaceParams = match[3]
       ? match[3]
@@ -814,7 +805,28 @@ export class Sentinel {
           .filter((p) => p)
       : [];
 
-    return { name, params: [...parenParams, ...spaceParams] };
+    // A regex to find and extract underscore-appended parameters like _index_0 or _id_12345
+    const paramRegex = /_([a-zA-Z][a-zA-Z0-9]*)_(\d+)$/;
+    let name = originalName;
+    const potentialParams: string[] = [];
+
+    // Repeatedly match to handle multiple appended parameters like _x_1_y_2
+    let regexMatch;
+    while ((regexMatch = name.match(paramRegex))) {
+      // Found a parameter-like suffix
+      const paramKey = regexMatch[1];
+      const paramValue = regexMatch[2];
+
+      // Add the full suffix to params to preserve info, e.g., "index_0"
+      potentialParams.unshift(`${paramKey}_${paramValue}`);
+
+      // Shorten the name by removing the matched suffix
+      name = name.substring(0, regexMatch.index);
+    }
+
+    const allParams = [...parenParams, ...spaceParams, ...potentialParams];
+
+    return { name, params: allParams };
   }
 
   /**
@@ -860,22 +872,22 @@ export class Sentinel {
   /**
    * Detect patterns in action parameters
    */
-  private detectParameterPatterns(actionParams: Array<{ name: string; params: string[] }>): number {
-    if (actionParams.length < 3) return 0;
+  private detectParameterPatterns(recentActions: string[], semanticClusters: string[][]): number {
+    if (recentActions.length < 3) return 0;
 
-    // Group by action name
-    const actionGroups = new Map<string, string[][]>();
-    actionParams.forEach(({ name, params }) => {
-      if (!actionGroups.has(name)) actionGroups.set(name, []);
-      actionGroups.get(name)!.push(params);
+    const actionToParams = new Map<string, string[]>();
+    recentActions.forEach((action) => {
+      actionToParams.set(action, this.extractActionParameters(action).params);
     });
 
     let totalPatterns = 0;
     let totalComparisons = 0;
 
-    // Look for parameter patterns within each action group
-    for (const [, paramsList] of actionGroups) {
-      if (paramsList.length < 2) continue;
+    // Look for parameter patterns within each semantic cluster
+    for (const cluster of semanticClusters) {
+      if (cluster.length < 2) continue;
+
+      const paramsList = cluster.map((action) => actionToParams.get(action)!);
 
       for (let i = 0; i < paramsList.length - 1; i++) {
         for (let j = i + 1; j < paramsList.length; j++) {
