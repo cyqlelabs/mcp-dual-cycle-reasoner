@@ -1,5 +1,5 @@
 <h1 align="center">MCP Dual-Cycle Reasoner</h1>
-<p align="center"><img src="https://tenor.com/es/view/macana-hermanos-macana-autos-locos-wacky-races-slag-brothers-gif-18388814" /></p>
+<p align="center"><img src="slag-brothers-hermanos-macana.gif" /></p>
 
 [![CI](https://github.com/cyqlelabs/mcp-dual-cycle-reasoner/actions/workflows/ci.yml/badge.svg)](https://github.com/cyqlelabs/mcp-dual-cycle-reasoner/actions/workflows/ci.yml)
 
