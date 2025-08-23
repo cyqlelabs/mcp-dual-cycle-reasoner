@@ -36,7 +36,7 @@ import { Case } from '../src/types';
 describe('Adjudicator', () => {
   let adjudicator: Adjudicator;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     adjudicator = new Adjudicator();
   });
 
@@ -44,6 +44,198 @@ describe('Adjudicator', () => {
     // Clear the internal case base by creating a new instance
     adjudicator = new Adjudicator();
     jest.clearAllMocks();
+  });
+
+  describe('edge cases and robustness', () => {
+    it('should handle empty problem descriptions', async () => {
+      await adjudicator.storeExperience({
+        problem_description: '',
+        solution: 'no solution',
+        outcome: false,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases('', 5);
+      expect(Array.isArray(cases)).toBe(true);
+    });
+
+    it('should handle very long problem descriptions', async () => {
+      const longDescription = 'A'.repeat(10000);
+      await adjudicator.storeExperience({
+        problem_description: longDescription,
+        solution: 'solution',
+        outcome: true,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases(longDescription.substring(0, 100), 5);
+      expect(Array.isArray(cases)).toBe(true);
+    });
+
+    it('should handle special characters in descriptions', async () => {
+      const specialText = 'Problem with émojis 🚀 and symbols @#$%^&*()';
+      await adjudicator.storeExperience({
+        problem_description: specialText,
+        solution: 'handled special chars',
+        outcome: true,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases(specialText, 5);
+      expect(Array.isArray(cases)).toBe(true);
+    });
+
+    it('should handle unicode and international text', async () => {
+      const unicodeText = '这是一个中文问题描述 with 日本語 and العربية';
+      await adjudicator.storeExperience({
+        problem_description: unicodeText,
+        solution: 'multilingual solution',
+        outcome: true,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases('中文', 5);
+      expect(Array.isArray(cases)).toBe(true);
+    });
+
+    it('should handle concurrent operations', async () => {
+      const operations = Array(10)
+        .fill()
+        .map(async (_, i) => {
+          await adjudicator.storeExperience({
+            problem_description: `problem ${i}`,
+            solution: `solution ${i}`,
+            outcome: i % 2 === 0,
+          });
+          return adjudicator.retrieveSimilarCases(`query ${i}`, 3);
+        });
+
+      const results = await Promise.all(operations);
+      expect(results).toHaveLength(10);
+      results.forEach((result) => {
+        expect(Array.isArray(result)).toBe(true);
+      });
+    });
+
+    it('should handle extremely high similarity thresholds', async () => {
+      await adjudicator.storeExperience({
+        problem_description: 'exact match test',
+        solution: 'solution',
+        outcome: true,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases('exact match test', 5, {
+        min_similarity: 0.99,
+      });
+
+      expect(Array.isArray(cases)).toBe(true);
+    });
+
+    it('should handle zero similarity threshold', async () => {
+      await adjudicator.storeExperience({
+        problem_description: 'any case',
+        solution: 'any solution',
+        outcome: true,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases('completely different query', 5, {
+        min_similarity: 0.0,
+      });
+
+      expect(Array.isArray(cases)).toBe(true);
+      expect(cases.length).toBeGreaterThan(0);
+    });
+
+    it('should handle negative max results gracefully', async () => {
+      await adjudicator.storeExperience({
+        problem_description: 'test case',
+        solution: 'test solution',
+        outcome: true,
+      });
+
+      const cases = await adjudicator.retrieveSimilarCases('test', -5);
+      expect(Array.isArray(cases)).toBe(true);
+      expect(cases.length).toBe(0);
+    });
+
+    it('should handle very large max results requests', async () => {
+      // Add a few cases
+      for (let i = 0; i < 5; i++) {
+        await adjudicator.storeExperience({
+          problem_description: `case ${i}`,
+          solution: `solution ${i}`,
+          outcome: true,
+        });
+      }
+
+      const cases = await adjudicator.retrieveSimilarCases('case', 1000);
+      expect(Array.isArray(cases)).toBe(true);
+      expect(cases.length).toBeLessThanOrEqual(5); // Should not exceed available cases
+    });
+
+    it('should handle malformed filter objects', async () => {
+      await adjudicator.storeExperience({
+        problem_description: 'filter test',
+        solution: 'solution',
+        outcome: true,
+      });
+
+      const malformedFilters: any = {
+        context_filter: null,
+        difficulty_filter: 'invalid',
+        outcome_filter: 'not_boolean',
+        min_similarity: 'not_number',
+      };
+
+      // Should not throw and return valid results
+      const cases = await adjudicator.retrieveSimilarCases('filter test', 5, malformedFilters);
+      expect(Array.isArray(cases)).toBe(true);
+    });
+
+    it('should maintain case integrity after multiple operations', async () => {
+      const testCase = {
+        problem_description: 'integrity test',
+        solution: 'maintain data',
+        outcome: true,
+        context: 'test environment',
+      };
+
+      await adjudicator.storeExperience({
+        problem_description: testCase.problem_description,
+        solution: testCase.solution,
+        outcome: testCase.outcome,
+        context: testCase.context,
+      });
+
+      // Perform multiple retrieval operations
+      for (let i = 0; i < 10; i++) {
+        const cases = await adjudicator.retrieveSimilarCases('integrity', 5);
+        expect(cases.length).toBeGreaterThan(0);
+
+        const retrievedCase = cases[0];
+        expect(retrievedCase.problem_description).toBe(testCase.problem_description);
+        expect(retrievedCase.solution).toBe(testCase.solution);
+        expect(retrievedCase.outcome).toBe(testCase.outcome);
+      }
+    });
+
+    it('should handle rapid sequential operations', async () => {
+      const operations = [];
+
+      // Rapid store operations
+      for (let i = 0; i < 20; i++) {
+        operations.push(
+          adjudicator.storeExperience({
+            problem_description: `rapid case ${i}`,
+            solution: `rapid solution ${i}`,
+            outcome: i % 2 === 0,
+          })
+        );
+      }
+
+      await Promise.all(operations);
+
+      // Verify cases were stored (even if not all due to semantic analyzer fallback)
+      const cases = await adjudicator.retrieveSimilarCases('rapid', 25);
+      expect(cases.length).toBeGreaterThan(0);
+      expect(cases.length).toBeLessThanOrEqual(20);
+    });
   });
 
   describe('initialization', () => {

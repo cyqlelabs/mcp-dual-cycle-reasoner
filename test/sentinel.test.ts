@@ -50,7 +50,163 @@ describe('Sentinel', () => {
   });
 
   afterEach(() => {
+    sentinel.reset();
     jest.clearAllMocks();
+  });
+
+  describe('edge cases and error handling', () => {
+    it('should handle empty action sequences', async () => {
+      const trace: CognitiveTrace & { recent_actions: string[] } = {
+        last_action: '',
+        goal: 'test goal',
+        recent_actions: [],
+      };
+
+      const result = await sentinel.detectLoop(trace, 'pattern', 5);
+      expect(result.detected).toBe(false);
+    });
+
+    it('should handle single action sequences', async () => {
+      const trace: CognitiveTrace & { recent_actions: string[] } = {
+        last_action: 'single_action',
+        goal: 'test goal',
+        recent_actions: ['single_action'],
+      };
+
+      const result = await sentinel.detectLoop(trace, 'pattern', 5);
+      expect(result.detected).toBe(false);
+    });
+
+    it('should handle very long action sequences without performance issues', async () => {
+      const longActionSequence = Array(1000)
+        .fill()
+        .map((_, i) => `action_${i % 10}`);
+      const trace: CognitiveTrace & { recent_actions: string[] } = {
+        last_action: 'action_9',
+        goal: 'performance test',
+        recent_actions: longActionSequence,
+      };
+
+      const start = Date.now();
+      const result = await sentinel.detectLoop(trace, 'hybrid', 50);
+      const duration = Date.now() - start;
+
+      expect(result).toBeDefined();
+      expect(duration).toBeLessThan(5000); // Should complete within 5 seconds
+    });
+
+    it('should handle invalid window sizes gracefully', async () => {
+      const trace: CognitiveTrace & { recent_actions: string[] } = {
+        last_action: 'test_action',
+        goal: 'test goal',
+        recent_actions: ['action1', 'action2', 'action3'],
+      };
+
+      // Test negative window size
+      const result1 = await sentinel.detectLoop(trace, 'pattern', -1);
+      expect(result1.detected).toBe(false);
+
+      // Test zero window size
+      const result2 = await sentinel.detectLoop(trace, 'pattern', 0);
+      expect(result2.detected).toBe(false);
+
+      // Test extremely large window size
+      const result3 = await sentinel.detectLoop(trace, 'pattern', 1000000);
+      expect(result3.detected).toBe(false);
+    });
+
+    it('should handle malformed traces gracefully', async () => {
+      const malformedTrace: any = {
+        last_action: null,
+        goal: undefined,
+        recent_actions: null,
+      };
+
+      // Should not throw but return no detection
+      const result = await sentinel.detectLoop(malformedTrace, 'pattern', 5);
+      expect(result.detected).toBe(false);
+    });
+
+    it('should handle actions with special characters', async () => {
+      const specialActions = [
+        'action_with_underscore',
+        'action-with-dash',
+        'action.with.dots',
+        'action with spaces',
+        'action@with#symbols$',
+        '中文_action',
+        'émoji_🚀_action',
+      ];
+
+      const trace: CognitiveTrace & { recent_actions: string[] } = {
+        last_action: specialActions[0],
+        goal: 'special chars test',
+        recent_actions: specialActions,
+      };
+
+      const result = await sentinel.detectLoop(trace, 'pattern', 10);
+      expect(result).toBeDefined();
+      expect(typeof result.detected).toBe('boolean');
+    });
+
+    it('should maintain consistent behavior across multiple resets', async () => {
+      const actions = ['reset_test_1', 'reset_test_2', 'reset_test_1', 'reset_test_2'];
+
+      for (let i = 0; i < 3; i++) {
+        sentinel.reset();
+
+        const trace: CognitiveTrace & { recent_actions: string[] } = {
+          last_action: actions[actions.length - 1],
+          goal: `reset iteration ${i}`,
+          recent_actions: actions,
+        };
+
+        const result = await sentinel.detectLoop(trace, 'pattern', 5);
+        expect(result).toBeDefined();
+        expect(typeof result.confidence).toBe('number');
+        expect(result.confidence).toBeGreaterThanOrEqual(0);
+        expect(result.confidence).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('should handle concurrent detection requests', async () => {
+      const traces = Array(5)
+        .fill()
+        .map((_, i) => ({
+          last_action: `concurrent_action_${i}`,
+          goal: `concurrent goal ${i}`,
+          recent_actions: [`action_${i}`, `action_${i}`, `action_${i}`],
+        }));
+
+      const promises = traces.map((trace) =>
+        sentinel.detectLoop(trace as CognitiveTrace & { recent_actions: string[] }, 'hybrid', 5)
+      );
+
+      const results = await Promise.all(promises);
+
+      expect(results).toHaveLength(5);
+      results.forEach((result) => {
+        expect(result).toBeDefined();
+        expect(typeof result.detected).toBe('boolean');
+      });
+    });
+
+    it('should handle detection method case variations', async () => {
+      const trace: CognitiveTrace & { recent_actions: string[] } = {
+        last_action: 'test_action',
+        goal: 'case test',
+        recent_actions: ['action1', 'action2'],
+      };
+
+      // Test with different method variations
+      const methods = ['statistical', 'pattern', 'hybrid'];
+
+      for (const method of methods) {
+        const result = await sentinel.detectLoop(trace, method as any, 5);
+        expect(result).toBeDefined();
+        expect(typeof result.detected).toBe('boolean');
+      }
+    });
   });
 
   describe('initialization', () => {
