@@ -34,11 +34,10 @@ jobs:
         run: npm test -- --coverage --coverageReporters=lcov
 
       - name: Upload coverage reports to Codecov
-          uses: codecov/codecov-action@v5
-          with:
-            token: ${{ secrets.CODECOV_TOKEN }}
-            slug: cyqlelabs/mcp-dual-cycle-reasoner
-
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          slug: cyqlelabs/mcp-dual-cycle-reasoner
       - name: Build project
         run: npm run build
 
@@ -82,4 +81,3 @@ jobs:
       #   run: npm publish --access public
       #   env:
       #     NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
