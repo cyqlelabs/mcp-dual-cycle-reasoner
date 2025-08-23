@@ -287,7 +287,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
           if (result.loop_detected) {
             result.loop_detected.confidence = parseFloat(
-              (result.loop_detected.confidence).toFixed(2)
+              result.loop_detected.confidence.toFixed(2)
             );
           }
 
@@ -368,7 +368,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
           });
 
           if (result.detected) {
-            result.confidence = parseFloat((result.confidence).toFixed(2));
+            result.confidence = parseFloat(result.confidence.toFixed(2));
           }
 
           return JSON.stringify(result, null, 2);

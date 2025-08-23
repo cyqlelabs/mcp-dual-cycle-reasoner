@@ -2,6 +2,7 @@
 <p align="center"><img src="slag-brothers-hermanos-macana.gif" /></p>
 
 [![CI](https://github.com/cyqlelabs/mcp-dual-cycle-reasoner/actions/workflows/ci.yml/badge.svg)](https://github.com/cyqlelabs/mcp-dual-cycle-reasoner/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/cyqlelabs/mcp-dual-cycle-reasoner/branch/main/graph/badge.svg)](https://codecov.io/gh/cyqlelabs/mcp-dual-cycle-reasoner)
 
 A Model Context Protocol (MCP) server implementing the **Dual-Cycle Metacognitive Reasoning Framework** for autonomous agents. This tool empowers agents with greater self-awareness and reliability through intelligent loop detection and experience acquisition.
 

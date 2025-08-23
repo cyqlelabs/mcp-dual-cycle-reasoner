@@ -587,12 +587,17 @@ describe('MCP Server Tools Tests', () => {
       const similarCases = await engine.getSimilarCases('Workflow test', 5);
       expect(similarCases).toBeDefined();
 
-      // 6. Configure detection
+      // 6. Configure detection with semantic intents
       const newConfig = {
         min_actions_for_detection: 5,
         alternating_threshold: 0.4,
+        semantic_intents: ['testing', 'clicking', 'navigating'],
       };
       sentinel.updateConfig(newConfig);
+
+      // Test dual-cycle engine with semantic intents
+      const engineWithConfig = new DualCycleEngine(newConfig);
+      await engineWithConfig.ensureSemanticAnalyzerReady();
 
       // 7. Stop monitoring
       engine.stopMonitoring();
