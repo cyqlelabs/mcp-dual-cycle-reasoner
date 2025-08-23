@@ -33,13 +33,11 @@ jobs:
       - name: Run tests with coverage
         run: npm test -- --coverage --coverageReporters=lcov
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v3
-        with:
-          file: ./coverage/lcov.info
-          flags: unittests
-          name: codecov-umbrella
-          fail_ci_if_error: false
+      - name: Upload coverage reports to Codecov
+          uses: codecov/codecov-action@v5
+          with:
+            token: ${{ secrets.CODECOV_TOKEN }}
+            slug: cyqlelabs/mcp-dual-cycle-reasoner
 
       - name: Build project
         run: npm run build
