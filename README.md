@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/cyqlelabs-mcp-dual-cycle-reasoner-badge.png)](https://mseep.ai/app/cyqlelabs-mcp-dual-cycle-reasoner)
+
 <h1 align="center">MCP Dual-Cycle Reasoner</h1>
 <p align="center"><img src="slag-brothers-hermanos-macana.gif" /></p>
 
