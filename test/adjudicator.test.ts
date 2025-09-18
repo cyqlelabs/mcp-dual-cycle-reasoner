@@ -42,8 +42,7 @@ describe('Adjudicator', () => {
   });
 
   afterEach(() => {
-    // Clear the internal case base by creating a new instance
-    adjudicator = new Adjudicator();
+    // Clear mocks
     jest.clearAllMocks();
   });
 
@@ -398,7 +397,7 @@ describe('Adjudicator', () => {
         min_similarity: undefined,
       };
 
-      const cases = await adjudicator.retrieveSimilarCases('difficult problem', 5, filters);
+      const cases = await adjudicator.retrieveSimilarCases('navigation menu broken', 5, filters);
 
       expect(cases.length).toBeGreaterThan(0);
       expect(cases.every((c) => c.difficulty_level === 'high')).toBe(true);

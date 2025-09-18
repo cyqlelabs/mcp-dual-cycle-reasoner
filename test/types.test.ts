@@ -360,7 +360,7 @@ describe('Type Schemas', () => {
         const result = RetrieveSimilarCasesInputSchema.parse(input);
         expect(result.problem_description).toBe('Similar issue');
         expect(result.max_results).toBe(5);
-        expect(result.min_similarity).toBe(0.1);
+        expect(result.min_similarity).toBeUndefined();
       });
 
       it('should validate with all filters', () => {

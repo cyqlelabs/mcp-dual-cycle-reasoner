@@ -112,7 +112,6 @@ export const CaseSchema = z.object({
   usage_count: z.number().min(0).default(0),
   // Quality metrics
   confidence_score: z.number().min(0).max(1).optional(),
-  validation_score: z.number().min(0).max(1).optional(),
   // Semantic features
   semantic_features: z
     .object({
@@ -127,6 +126,7 @@ export const CaseSchema = z.object({
       semantic_similarity: z.number().optional(),
       jaccard_similarity: z.number().optional(),
       cosine_similarity: z.number().optional(),
+      raw_similarity: z.number().optional(),
       combined_similarity: z.number().optional(),
     })
     .optional(),
@@ -166,7 +166,7 @@ export const RetrieveSimilarCasesInputSchema = z.object({
     .optional()
     .describe('Filter cases by difficulty level'),
   outcome_filter: z.boolean().optional().describe('Filter cases by outcome (success/failure)'),
-  min_similarity: z.number().min(0).max(1).default(0.1).describe('Minimum similarity threshold'),
+  min_similarity: z.number().min(0).max(1).optional().describe('Minimum similarity threshold'),
 });
 
 // Type exports

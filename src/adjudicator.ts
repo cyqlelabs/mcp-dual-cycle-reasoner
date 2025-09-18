@@ -86,7 +86,6 @@ export class Adjudicator {
         ...case_,
         semantic_features: combinedFeatures as any,
         confidence_score: confidenceScore,
-        validation_score: this.validateCase(case_),
         usage_count: 0,
         success_rate: case_.outcome ? 1.0 : 0.0,
       };
@@ -169,35 +168,23 @@ export class Adjudicator {
       // Calculate enhanced similarity scores
       const scoredCases = await Promise.all(
         filteredCases.map(async (case_) => {
-          const similarity = await this.calculateEnhancedSimilarity(
+          const rawSimilarity = await this.calculateEnhancedSimilarity(
             problemDescription,
             case_.problem_description,
             queryFeatures,
             case_.semantic_features
           );
 
-          // Apply usage-based boost for proven cases
-          const usageBoost = Math.min(0.1, (case_.usage_count || 0) * 0.02);
-          const successBoost = case_.outcome ? 0.05 : 0;
-          const confidenceBoost = (case_.confidence_score || 0) * 0.1;
-
-          const adjustedSimilarity = similarity + usageBoost + successBoost + confidenceBoost;
-
           return {
-            case: {
-              ...case_,
-              similarity_metrics: {
-                ...case_.similarity_metrics,
-                combined_similarity: adjustedSimilarity,
-              },
-            },
-            similarity: adjustedSimilarity,
+            case: case_,
+            similarity: rawSimilarity,
+            rawSimilarity: rawSimilarity,
           };
         })
       );
 
-      // Filter by minimum similarity threshold (more restrictive default)
-      const minSimilarity = filters.min_similarity || 0.3;
+      // Filter by minimum similarity threshold (more restrictive due to inflated semantic scores)
+      const minSimilarity = filters.min_similarity || 0.6;
       const validCases = scoredCases.filter((item) => item.similarity >= minSimilarity);
 
       // Sort by similarity and success rate
@@ -212,15 +199,38 @@ export class Adjudicator {
         return bSuccessRate - aSuccessRate;
       });
 
-      // Update usage statistics for retrieved cases
+      // Update usage statistics and calculate dynamic confidence/validation scores
       const results = sortedCases.slice(0, maxResults);
       results.forEach((item) => {
         item.case.usage_count = (item.case.usage_count || 0) + 1;
+
+        // Calculate dynamic confidence score based on similarity to query
+        // Higher similarity = higher confidence in the match
+        const similarityConfidence = Math.min(1.0, item.rawSimilarity * 1.2); // Boost good similarities
+        const usageBonus = Math.min(0.1, (item.case.usage_count || 0) * 0.02);
+        const outcomeBonus = item.case.outcome ? 0.1 : 0;
+
+        // Dynamic confidence score reflecting match quality
+        item.case.confidence_score = Math.max(
+          0,
+          Math.min(1, similarityConfidence + usageBonus + outcomeBonus)
+        );
+
+        // Add similarity metrics to the case for reference
+        item.case.similarity_metrics = {
+          ...item.case.similarity_metrics,
+          raw_similarity: item.rawSimilarity,
+          combined_similarity: item.rawSimilarity,
+        };
       });
 
       return results.map((item) => item.case);
     } catch (error) {
-      console.error('Error retrieving similar cases:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(
+        'Error retrieving similar cases, falling back to simple matching:',
+        errorMessage
+      );
       // Fallback to simple similarity matching
       return this.fallbackRetrieveSimilarCases(problemDescription, maxResults);
     }
@@ -484,33 +494,6 @@ export class Adjudicator {
   }
 
   /**
-   * Validate case quality
-   */
-  private validateCase(case_: Case): number {
-    let score = 0.5; // Base score
-
-    // Check for minimum description length
-    if (case_.problem_description.length < 10 || case_.solution.length < 10) {
-      score -= 0.3;
-    }
-
-    // Check for generic or vague descriptions
-    const genericTerms = ['error', 'problem', 'issue', 'failed', 'broken'];
-    const genericCount = genericTerms.reduce(
-      (count, term) => count + (case_.problem_description.toLowerCase().includes(term) ? 1 : 0),
-      0
-    );
-    score -= genericCount * 0.1;
-
-    // Bonus for specific context information
-    if (case_.context && case_.context.length > 5) {
-      score += 0.2;
-    }
-
-    return Math.max(0, Math.min(1, score));
-  }
-
-  /**
    * Check if case is duplicate
    */
   private isDuplicateCase(newCase: Case): boolean {
@@ -593,11 +576,8 @@ export class Adjudicator {
     // Usage count contribution (normalized)
     quality += Math.min(0.2, ((case_.usage_count || 0) / 10) * 0.2);
 
-    // Confidence score contribution
-    quality += (case_.confidence_score || 0) * 0.2;
-
-    // Validation score contribution
-    quality += (case_.validation_score || 0) * 0.2;
+    // Confidence score contribution (increased weight since validation_score is removed)
+    quality += (case_.confidence_score || 0) * 0.4;
 
     // Recency contribution (newer cases get slight boost)
     const ageDays = (Date.now() - (case_.timestamp || 0)) / (1000 * 60 * 60 * 24);
@@ -623,9 +603,26 @@ export class Adjudicator {
       similarity: this.calculateCaseSimilarity(problemDescription, case_.problem_description),
     }));
 
-    return scoredCases
-      .sort((a, b) => b.similarity - a.similarity)
-      .slice(0, maxResults)
-      .map((item) => item.case);
+    const minThreshold = 0.6; // Apply same threshold as main method
+    const filtered = scoredCases.filter((item) => item.similarity >= minThreshold);
+
+    const results = filtered.sort((a, b) => b.similarity - a.similarity).slice(0, maxResults);
+
+    // Apply dynamic scoring in fallback method too
+    results.forEach((item) => {
+      item.case.usage_count = (item.case.usage_count || 0) + 1;
+
+      // Calculate dynamic confidence score based on similarity to query
+      const similarityConfidence = Math.min(1.0, item.similarity * 1.2);
+      const usageBonus = Math.min(0.1, (item.case.usage_count || 0) * 0.02);
+      const outcomeBonus = item.case.outcome ? 0.1 : 0;
+
+      item.case.confidence_score = Math.max(
+        0,
+        Math.min(1, similarityConfidence + usageBonus + outcomeBonus)
+      );
+    });
+
+    return results.map((item) => item.case);
   }
 }
