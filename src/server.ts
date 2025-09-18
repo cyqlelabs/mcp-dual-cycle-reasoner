@@ -480,11 +480,16 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             maxResults: validatedArgs.max_results,
           });
 
-          return JSON.stringify(result, null, 2);
+          const simplifiedResult = result.map((caseItem: any) => {
+            const { semantic_features, similarity_metrics, ...rest } = caseItem;
+            return rest;
+          });
+
+          return JSON.stringify(simplifiedResult, null, 2);
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           log.error('Failed to retrieve similar cases', { error: errorMessage });
-          throw new UserError(`Failed to retrieve similar cases: ${errorMessage}`);
+          throw new UserError(`Failed to retrieve similar cases: {errorMessage}`);
         }
       },
     });
