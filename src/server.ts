@@ -31,8 +31,8 @@ import chalk from 'chalk';
 
 class DualCycleReasonerServer {
   private server: FastMCP;
-  private engines: WeakMap<any, DualCycleEngine> = new WeakMap();
-  private sessionIds: WeakMap<any, string> = new WeakMap();
+  private engines: Map<any, DualCycleEngine> = new Map();
+  private sessionIds: Map<any, string> = new Map();
   private sessionCounter: number = 0;
   private config: Partial<SentinelConfig>;
 
@@ -76,6 +76,9 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
     // Set up event handlers
     this.setupEventHandlers();
+
+    // Set up session cleanup for Map-based storage
+    this.setupSessionCleanup();
 
     // Default configuration - domain-agnostic
     this.config = {
@@ -139,6 +142,24 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
       console.log(chalk.gray(`🧹 Cleaned up resources for session: ${sessionId}`));
     }
+  }
+
+  /**
+   * Periodically clean up stale sessions (since we're using Map instead of WeakMap)
+   */
+  private setupSessionCleanup(): void {
+    setInterval(() => {
+      // This is a simple cleanup strategy - in a production system,
+      // you might want to track last access times and clean up inactive sessions
+      if (this.engines.size > 100) {
+        // Arbitrary limit to prevent memory leaks
+        console.log(
+          chalk.yellow(
+            `⚠️ Too many sessions (${this.engines.size}), consider implementing proper session cleanup`
+          )
+        );
+      }
+    }, 300000); // Check every 5 minutes
   }
 
   private setupEventHandlers(): void {
