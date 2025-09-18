@@ -31,7 +31,9 @@ import chalk from 'chalk';
 
 class DualCycleReasonerServer {
   private server: FastMCP;
-  private engine: DualCycleEngine;
+  private engines: WeakMap<any, DualCycleEngine> = new WeakMap();
+  private sessionIds: WeakMap<any, string> = new WeakMap();
+  private sessionCounter: number = 0;
   private config: Partial<SentinelConfig>;
 
   constructor() {
@@ -96,17 +98,63 @@ Use this server to help autonomous agents become more self-aware and resilient.`
       ],
     };
 
-    this.engine = new DualCycleEngine(this.config);
     this.setupTools();
     this.setupErrorHandling();
+  }
+
+  /**
+   * Get or create a session-specific DualCycleEngine
+   */
+  private getSessionEngine(session: any): DualCycleEngine {
+    if (!this.engines.has(session)) {
+      // Generate a unique session ID for this session
+      if (!this.sessionIds.has(session)) {
+        const sessionId = `session_${++this.sessionCounter}`;
+        this.sessionIds.set(session, sessionId);
+      }
+
+      const sessionId = this.sessionIds.get(session)!;
+      console.log(chalk.blue(`🧠 Creating new DualCycleEngine for session: ${sessionId}`));
+      this.engines.set(session, new DualCycleEngine(this.config, sessionId));
+    }
+    return this.engines.get(session)!;
+  }
+
+  /**
+   * Clean up session-specific resources
+   */
+  private cleanupSession(session: any): void {
+    const engine = this.engines.get(session);
+    const sessionId = this.sessionIds.get(session);
+
+    if (engine && sessionId) {
+      engine.reset();
+      this.engines.delete(session);
+
+      // Clear session-specific semantic analyzer cache
+      semanticAnalyzer.clearSessionCache(sessionId);
+
+      // Clean up session ID mapping
+      this.sessionIds.delete(session);
+
+      console.log(chalk.gray(`🧹 Cleaned up resources for session: ${sessionId}`));
+    }
   }
 
   private setupEventHandlers(): void {
     // Handle client connections
     this.server.on('connect', (event) => {
-      console.log(
-        chalk.green(`🔗 Client connected: ${event.session.clientCapabilities?.name || 'unknown'}`)
-      );
+      const clientName = event.session.clientCapabilities?.name || 'unknown';
+
+      // Create or get session ID
+      if (!this.sessionIds.has(event.session)) {
+        const sessionId = `session_${++this.sessionCounter}`;
+        this.sessionIds.set(event.session, sessionId);
+      }
+
+      const sessionId = this.sessionIds.get(event.session)!;
+
+      console.log(chalk.green(`🔗 Client connected: ${clientName} (session: ${sessionId})`));
 
       // Listen for roots changes
       event.session.on('rootsChanged', (rootsEvent) => {
@@ -121,11 +169,15 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
     // Handle client disconnections
     this.server.on('disconnect', (event) => {
+      const sessionId = this.sessionIds.get(event.session);
+      const clientName = event.session.clientCapabilities?.name || 'unknown';
+
       console.log(
-        chalk.yellow(
-          `🔌 Client disconnected: ${event.session.clientCapabilities?.name || 'unknown'}`
-        )
+        chalk.yellow(`🔌 Client disconnected: ${clientName} (session: ${sessionId || 'unknown'})`)
       );
+
+      // Clean up session-specific resources
+      this.cleanupSession(event.session);
     });
   }
 
@@ -178,14 +230,18 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: false,
         openWorldHint: false,
       },
-      execute: async (args, { log }) => {
+      execute: async (args, { log, session }) => {
         try {
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
+
           log.info('Starting metacognitive monitoring', {
             goal: args.goal,
             initialBeliefsCount: args.initial_beliefs.length,
+            sessionId,
           });
 
-          await this.engine.startMonitoring(args.goal, args.initial_beliefs);
+          await sessionEngine.startMonitoring(args.goal, args.initial_beliefs);
 
           log.info('Monitoring started successfully');
           return `✅ Metacognitive monitoring started for goal: "${args.goal}" with ${args.initial_beliefs.length} initial beliefs`;
@@ -210,17 +266,20 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: true,
         openWorldHint: false,
       },
-      execute: async (args, { log }) => {
+      execute: async (args, { log, session }) => {
         try {
-          const status = this.engine.getMonitoringStatus();
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
+          const status = sessionEngine.getMonitoringStatus();
 
           log.info('Stopping monitoring', {
             goal: status.current_goal,
             interventions: status.intervention_count,
             traceLength: status.trace_length,
+            sessionId,
           });
 
-          this.engine.stopMonitoring();
+          sessionEngine.stopMonitoring();
 
           return (
             `🛑 Monitoring stopped. Session summary:\n` +
@@ -259,19 +318,22 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: false,
         openWorldHint: false,
       },
-      execute: async (args, { log, reportProgress }) => {
+      execute: async (args, { log, reportProgress, session }) => {
         try {
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
           const validatedArgs = MonitorCognitiveTraceInputSchema.parse(args);
 
           log.info('Processing trace update', {
             lastAction: validatedArgs.last_action,
             context: validatedArgs.current_context,
             goal: validatedArgs.goal,
+            sessionId,
           });
 
           await reportProgress({ progress: 0, total: 3 });
 
-          const result = await this.engine.processTraceUpdate(
+          const result = await sessionEngine.processTraceUpdate(
             validatedArgs.last_action,
             validatedArgs.current_context,
             validatedArgs.goal,
@@ -324,20 +386,23 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: true,
         openWorldHint: false,
       },
-      execute: async (args, { log, reportProgress }) => {
+      execute: async (args, { log, reportProgress, session }) => {
         try {
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
           const validatedArgs = DetectLoopInputSchema.parse(args);
 
           log.info('Starting loop detection', {
             context: validatedArgs.current_context,
             goal: validatedArgs.goal,
             method: validatedArgs.detection_method,
+            sessionId,
           });
 
           await reportProgress({ progress: 0, total: 2 });
 
           // Get current enriched trace (includes recent_actions) and update context/goal if provided
-          const enrichedTrace = this.engine.getEnrichedCurrentTrace();
+          const enrichedTrace = sessionEngine.getEnrichedCurrentTrace();
           const trace = {
             ...enrichedTrace,
             ...(validatedArgs.current_context && {
@@ -356,7 +421,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
           await reportProgress({ progress: 1, total: 2 });
 
           // Direct access to sentinel for standalone loop detection
-          const sentinel = (this.engine as any).sentinel;
+          const sentinel = (sessionEngine as any).sentinel;
           const result = await sentinel.detectLoop(trace, validatedArgs.detection_method);
 
           await reportProgress({ progress: 2, total: 2 });
@@ -397,14 +462,17 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: false,
         openWorldHint: false,
       },
-      execute: async (args, { log }) => {
+      execute: async (args, { log, session }) => {
         try {
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
           const validatedArgs = StoreExperienceInputSchema.parse(args);
 
           log.info('Storing experience case', {
             problemDescription: validatedArgs.problem_description,
             solution: validatedArgs.solution,
             outcome: validatedArgs.outcome,
+            sessionId,
           });
 
           const caseData = {
@@ -415,7 +483,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             difficulty_level: validatedArgs.difficulty_level,
           };
 
-          const adjudicator = (this.engine as any).adjudicator;
+          const adjudicator = (sessionEngine as any).adjudicator;
           const storedCase = CaseSchema.parse(caseData);
           await adjudicator.storeExperience(storedCase);
 
@@ -449,13 +517,16 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: true,
         openWorldHint: false,
       },
-      execute: async (args, { log, reportProgress }) => {
+      execute: async (args, { log, reportProgress, session }) => {
         try {
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
           const validatedArgs = RetrieveSimilarCasesInputSchema.parse(args);
 
           log.info('Retrieving similar cases', {
             problemDescription: validatedArgs.problem_description,
             maxResults: validatedArgs.max_results,
+            sessionId,
           });
 
           await reportProgress({ progress: 0, total: 2 });
@@ -467,7 +538,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             min_similarity: validatedArgs.min_similarity,
           };
 
-          const result = await this.engine.getSimilarCases(
+          const result = await sessionEngine.getSimilarCases(
             validatedArgs.problem_description,
             validatedArgs.max_results,
             filters
@@ -507,17 +578,21 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: true,
         openWorldHint: false,
       },
-      execute: async (args, { log }) => {
+      execute: async (args, { log, session }) => {
         try {
-          log.debug('Retrieving monitoring status');
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
 
-          const status = this.engine.getMonitoringStatus();
+          log.debug('Retrieving monitoring status', { sessionId });
+
+          const status = sessionEngine.getMonitoringStatus();
 
           log.info('Monitoring status retrieved', {
             isMonitoring: status.is_monitoring,
             currentGoal: status.current_goal,
             traceLength: status.trace_length,
             interventionCount: status.intervention_count,
+            sessionId,
           });
 
           return JSON.stringify(status, null, 2);
@@ -542,11 +617,14 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: true,
         openWorldHint: false,
       },
-      execute: async (args, { log }) => {
+      execute: async (args, { log, session }) => {
         try {
-          log.warn('Resetting dual-cycle engine state');
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
 
-          this.engine.reset();
+          log.warn('Resetting dual-cycle engine state', { sessionId });
+
+          sessionEngine.reset();
 
           log.info('Engine reset completed successfully');
 
@@ -603,8 +681,10 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         idempotentHint: false,
         openWorldHint: false,
       },
-      execute: async (args, { log }) => {
+      execute: async (args, { log, session }) => {
         try {
+          const sessionEngine = this.getSessionEngine(session);
+          const sessionId = this.sessionIds.get(session);
           const newConfig = args as Partial<SentinelConfig>;
 
           log.info('Updating detection configuration', {
@@ -613,16 +693,17 @@ Use this server to help autonomous agents become more self-aware and resilient.`
             alternatingThreshold: newConfig.alternating_threshold,
             repetitionThreshold: newConfig.repetition_threshold,
             progressThresholdAdjustment: newConfig.progress_threshold_adjustment,
+            sessionId,
           });
 
           this.config = { ...this.config, ...newConfig };
 
-          // Update the engine's sentinel configuration
-          (this.engine as any).sentinel.updateConfig(this.config);
+          // Update the session engine's sentinel configuration
+          (sessionEngine as any).sentinel.updateConfig(this.config);
 
           // Update the adjudicator's semantic intents if provided
           if (newConfig.semantic_intents) {
-            (this.engine as any).adjudicator.updateSemanticIntents(newConfig.semantic_intents);
+            (sessionEngine as any).adjudicator.updateSemanticIntents(newConfig.semantic_intents);
           }
 
           log.info('Detection configuration updated successfully', {

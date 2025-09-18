@@ -127,7 +127,8 @@ export class Adjudicator {
       difficulty_filter?: 'low' | 'medium' | 'high';
       outcome_filter?: boolean;
       min_similarity?: number;
-    } = {}
+    } = {},
+    sessionId?: string
   ): Promise<Case[]> {
     if (!this.isInitialized) {
       await this.initialize();
@@ -172,7 +173,8 @@ export class Adjudicator {
             problemDescription,
             case_.problem_description,
             queryFeatures,
-            case_.semantic_features
+            case_.semantic_features,
+            sessionId
           );
 
           return {
@@ -343,12 +345,14 @@ export class Adjudicator {
     query: string,
     caseDescription: string,
     queryFeatures: any,
-    caseFeatures: any
+    caseFeatures: any,
+    sessionId?: string
   ): Promise<number> {
     // Get semantic similarity from semantic analyzer
     const semanticResult = await semanticAnalyzer.calculateSemanticSimilarity(
       query,
-      caseDescription
+      caseDescription,
+      sessionId
     );
     const semanticSimilarity = semanticResult.similarity;
 

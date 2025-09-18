@@ -82,7 +82,8 @@ export class Sentinel {
    */
   async detectActionAnomalies(
     trace: CognitiveTrace & { recent_actions: string[] },
-    windowSize: number = 10
+    windowSize: number = 10,
+    sessionId?: string
   ): Promise<LoopDetectionResult> {
     if (
       !trace.recent_actions ||
@@ -112,7 +113,10 @@ export class Sentinel {
     const recentActions = trace.recent_actions.slice(-windowSize);
 
     // PERFORMANCE OPTIMIZATION: Compute similarity matrix once for all semantic operations
-    const similarityMatrix = await semanticAnalyzer.computeSimilarityMatrix(recentActions);
+    const similarityMatrix = await semanticAnalyzer.computeSimilarityMatrix(
+      recentActions,
+      sessionId
+    );
 
     // Domain-agnostic semantic similarity analysis using precomputed matrix
     const semanticClusters = this.clusterWithPrecomputedSimilarity(recentActions, similarityMatrix);
@@ -130,16 +134,24 @@ export class Sentinel {
     const exactRepetitionRatio = 1 - uniqueActions.size / recentActions.length;
 
     // Check for cyclical patterns using precomputed similarities
-    const cyclicalScore = await this.detectCyclicalPatterns(recentActions, similarityMatrix);
+    const cyclicalScore = await this.detectCyclicalPatterns(
+      recentActions,
+      sessionId,
+      similarityMatrix
+    );
 
     // Check for oscillating patterns using precomputed similarities
-    const oscillationScore = await this.detectOscillationPatterns(recentActions, similarityMatrix);
+    const oscillationScore = await this.detectOscillationPatterns(
+      recentActions,
+      sessionId,
+      similarityMatrix
+    );
 
     // Enhanced pattern detection for alternating actions using semantic similarity
     const alternatingScore = this.detectAlternatingPatterns(semanticClusters, recentActions);
 
     // Check for configurable progress indicators that suggest positive task advancement
-    const hasProgressAction = await this.checkProgressIndicators(recentActions);
+    const hasProgressAction = await this.checkProgressIndicators(recentActions, sessionId);
 
     // Calculate combined anomaly score using multiple detection methods
     const anomalyScores = {
@@ -366,6 +378,7 @@ export class Sentinel {
   async detectProgressStagnation(
     trace: CognitiveTrace & { recent_actions: string[] },
     windowSize: number = 8,
+    sessionId?: string,
     similarityMatrix?: number[][]
   ): Promise<LoopDetectionResult> {
     const minActionsForDetection = Math.max(
@@ -496,18 +509,19 @@ export class Sentinel {
   async detectLoop(
     trace: CognitiveTrace & { recent_actions: string[] },
     method: 'statistical' | 'pattern' | 'hybrid' = 'hybrid',
-    windowSize: number = 10
+    windowSize: number = 10,
+    sessionId?: string
   ): Promise<LoopDetectionResult> {
     switch (method) {
       case 'statistical':
-        return await this.detectActionAnomalies(trace, windowSize);
+        return await this.detectActionAnomalies(trace, windowSize, sessionId);
       case 'pattern':
         return this.detectStateInvariance(trace, 2, windowSize);
       case 'hybrid':
       default:
-        const actionResult = await this.detectActionAnomalies(trace, windowSize);
+        const actionResult = await this.detectActionAnomalies(trace, windowSize, sessionId);
         const stateResult = this.detectStateInvariance(trace, 2, windowSize);
-        const progressResult = await this.detectProgressStagnation(trace, windowSize);
+        const progressResult = await this.detectProgressStagnation(trace, windowSize, sessionId);
 
         // Combine results - if any method detects a loop with high confidence, flag it
         const results = [actionResult, stateResult, progressResult];
@@ -843,8 +857,12 @@ export class Sentinel {
   /**
    * Calculate semantic similarity between two action strings using semantic analyzer
    */
-  private async semanticSimilarity(action1: string, action2: string): Promise<number> {
-    const result = await semanticAnalyzer.calculateSemanticSimilarity(action1, action2);
+  private async semanticSimilarity(
+    action1: string,
+    action2: string,
+    sessionId?: string
+  ): Promise<number> {
+    const result = await semanticAnalyzer.calculateSemanticSimilarity(action1, action2, sessionId);
     return result.similarity;
   }
 
@@ -971,12 +989,14 @@ export class Sentinel {
    */
   private async detectCyclicalPatterns(
     actions: string[],
+    sessionId?: string,
     similarityMatrix?: number[][]
   ): Promise<number> {
     if (actions.length < 4) return 0;
 
     // Use existing matrix or compute once if not provided
-    const matrix = similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions));
+    const matrix =
+      similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions, sessionId));
     let maxCyclicity = 0;
 
     // Check for cycles of length 2 to actions.length/2
@@ -1008,12 +1028,14 @@ export class Sentinel {
    */
   private async detectOscillationPatterns(
     actions: string[],
+    sessionId?: string,
     similarityMatrix?: number[][]
   ): Promise<number> {
     if (actions.length < 4) return 0;
 
     // Use existing matrix or compute once if not provided
-    const matrix = similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions));
+    const matrix =
+      similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions, sessionId));
     let oscillations = 0;
     let checks = 0;
 
@@ -1285,14 +1307,17 @@ export class Sentinel {
   /**
    * PERFORMANCE OPTIMIZED: Check for progress indicators using batch processing
    */
-  private async checkProgressIndicators(recentActions: string[]): Promise<boolean> {
+  private async checkProgressIndicators(
+    recentActions: string[],
+    sessionId?: string
+  ): Promise<boolean> {
     if (this.config.progress_indicators.length === 0) {
       return false;
     }
 
     // Batch compute similarities between all actions and all indicators
     const allTexts = [...recentActions, ...this.config.progress_indicators];
-    const similarityMatrix = await semanticAnalyzer.computeSimilarityMatrix(allTexts);
+    const similarityMatrix = await semanticAnalyzer.computeSimilarityMatrix(allTexts, sessionId);
 
     const actionCount = recentActions.length;
 

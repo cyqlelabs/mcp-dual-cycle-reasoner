@@ -17,11 +17,13 @@ export class DualCycleEngine {
   private isMonitoring: boolean = false;
   private interventionCount: number = 0;
   private accumulatedActions: string[] = [];
+  private sessionId?: string;
 
-  constructor(config?: Partial<SentinelConfig>) {
+  constructor(config?: Partial<SentinelConfig>, sessionId?: string) {
     this.sentinel = new Sentinel(config);
     this.adjudicator = new Adjudicator();
     this.currentTrace = this.initializeTrace();
+    this.sessionId = sessionId;
 
     // Configure semantic intents if provided
     if (config?.semantic_intents) {
@@ -182,7 +184,7 @@ export class DualCycleEngine {
     windowSize: number = 10
   ): Promise<LoopDetectionResult> {
     const enrichedTrace = this.getEnrichedTrace();
-    return await this.sentinel.detectLoop(enrichedTrace, 'hybrid', windowSize);
+    return await this.sentinel.detectLoop(enrichedTrace, 'hybrid', windowSize, this.sessionId);
   }
 
   /**
@@ -239,6 +241,11 @@ export class DualCycleEngine {
       min_similarity?: number;
     } = {}
   ): Promise<Case[]> {
-    return await this.adjudicator.retrieveSimilarCases(problemDescription, maxResults, filters);
+    return await this.adjudicator.retrieveSimilarCases(
+      problemDescription,
+      maxResults,
+      filters,
+      this.sessionId
+    );
   }
 }
