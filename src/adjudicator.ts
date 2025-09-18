@@ -196,8 +196,8 @@ export class Adjudicator {
         })
       );
 
-      // Filter by minimum similarity threshold
-      const minSimilarity = filters.min_similarity || 0.1;
+      // Filter by minimum similarity threshold (more restrictive default)
+      const minSimilarity = filters.min_similarity || 0.3;
       const validCases = scoredCases.filter((item) => item.similarity >= minSimilarity);
 
       // Sort by similarity and success rate

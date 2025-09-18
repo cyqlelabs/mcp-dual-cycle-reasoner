@@ -217,6 +217,12 @@ export class Sentinel {
         anomaly_score: combinedAnomalyScore,
         metrics: anomalyScores,
       },
+      statistical_metrics: {
+        entropy_score: anomalyScores.statistical_anomaly,
+        variance_score: anomalyScores.parameter_repetition,
+        trend_score: anomalyScores.temporal_pattern,
+        cyclicity_score: anomalyScores.cyclical_pattern,
+      },
     };
   }
 

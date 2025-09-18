@@ -166,9 +166,13 @@ export class SemanticAnalyzer {
       const [embedding1, embedding2] = await this.getBatchEmbeddings([text1, text2], sessionId);
       const similarity = this.cosineSimilarity(embedding1, embedding2);
 
+      // Calculate dynamic confidence based on similarity score
+      // Higher similarity scores get higher confidence, with minimum of 0.5
+      const confidence = Math.max(0.5, 0.3 + similarity * 0.7);
+
       return {
         similarity: Math.max(0, Math.min(1, similarity)),
-        confidence: 0.85, // High confidence for embedding-based similarity
+        confidence: Math.max(0, Math.min(1, confidence)),
         reasoning: 'Fast embedding-based semantic similarity',
       };
     } catch (error) {

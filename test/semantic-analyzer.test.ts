@@ -222,7 +222,7 @@ describe('SemanticAnalyzer', () => {
 
       expect(result).toEqual({
         similarity: expect.any(Number),
-        confidence: 0.85,
+        confidence: 1,
         reasoning: 'Fast embedding-based semantic similarity',
       });
       expect(result.similarity).toBeGreaterThanOrEqual(0);
