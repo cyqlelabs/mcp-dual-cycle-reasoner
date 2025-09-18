@@ -26,8 +26,9 @@ export class SemanticAnalyzer {
   private nliClassifier: ZeroShotClassificationPipeline | null = null;
   private embeddingModel: FeatureExtractionPipeline | null = null;
   private isInitialized = false;
-  private embeddingCache: Map<string, number[]> = new Map();
+  private sessionCaches: Map<string, Map<string, number[]>> = new Map();
   private readonly maxCacheSize = 500;
+  private readonly maxSessions = 100;
 
   async initialize(): Promise<void> {
     if (this.isInitialized) {
@@ -46,7 +47,14 @@ export class SemanticAnalyzer {
         }
       );
 
-      // Initialize NLI model for precision tasks (lazy loaded)
+      // Preload NLI model to avoid first-call delay
+      console.log('Loading NLI model for precision analysis...');
+      this.nliClassifier = await pipeline<'zero-shot-classification'>(
+        'zero-shot-classification',
+        'MoritzLaurer/deberta-v3-base-zeroshot-v1.1-all-33',
+        { cache_dir: process.env.HF_HUB_CACHE || '.hf_cache' }
+      );
+
       this.isInitialized = true;
       console.log('Semantic models initialized successfully');
     } catch (error) {
@@ -56,18 +64,8 @@ export class SemanticAnalyzer {
   }
 
   async analyzeTextPair(premise: string, hypothesis: string): Promise<SemanticAnalysisResult> {
-    if (!this.isInitialized) {
+    if (!this.isInitialized || !this.nliClassifier) {
       throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
-    }
-
-    // Lazy load NLI classifier when needed for precision tasks
-    if (!this.nliClassifier) {
-      console.log('Loading NLI model for precision analysis...');
-      this.nliClassifier = await pipeline<'zero-shot-classification'>(
-        'zero-shot-classification',
-        'MoritzLaurer/deberta-v3-base-zeroshot-v1.1-all-33',
-        { cache_dir: process.env.HF_HUB_CACHE || '.hf_cache' }
-      );
     }
 
     try {
@@ -156,7 +154,8 @@ export class SemanticAnalyzer {
    */
   async calculateSemanticSimilarity(
     text1: string,
-    text2: string
+    text2: string,
+    sessionId?: string
   ): Promise<SemanticSimilarityResult> {
     if (!this.isInitialized || !this.embeddingModel) {
       throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
@@ -164,7 +163,7 @@ export class SemanticAnalyzer {
 
     try {
       // Use fast embedding-based similarity (much faster than NLI)
-      const [embedding1, embedding2] = await this.getBatchEmbeddings([text1, text2]);
+      const [embedding1, embedding2] = await this.getBatchEmbeddings([text1, text2], sessionId);
       const similarity = this.cosineSimilarity(embedding1, embedding2);
 
       return {
@@ -179,21 +178,46 @@ export class SemanticAnalyzer {
   }
 
   /**
+   * Get or create a session-specific embedding cache
+   */
+  private getSessionCache(sessionId: string = 'default'): Map<string, number[]> {
+    if (!this.sessionCaches.has(sessionId)) {
+      // Implement LRU for session management
+      if (this.sessionCaches.size >= this.maxSessions) {
+        const firstSession = this.sessionCaches.keys().next().value;
+        if (firstSession) {
+          this.sessionCaches.delete(firstSession);
+        }
+      }
+      this.sessionCaches.set(sessionId, new Map());
+    }
+    return this.sessionCaches.get(sessionId)!;
+  }
+
+  /**
+   * Clear cache for a specific session
+   */
+  clearSessionCache(sessionId: string): void {
+    this.sessionCaches.delete(sessionId);
+  }
+
+  /**
    * PERFORMANCE OPTIMIZATION: Batch compute embeddings for multiple texts
    * This is 10-100x faster than individual model calls
    */
-  async getBatchEmbeddings(texts: string[]): Promise<number[][]> {
+  async getBatchEmbeddings(texts: string[], sessionId?: string): Promise<number[][]> {
     if (!this.embeddingModel) {
       throw new Error('Embedding model not initialized');
     }
 
+    const sessionCache = this.getSessionCache(sessionId);
     const embeddings: number[][] = [];
     const uncachedTexts: string[] = [];
     const uncachedIndices: number[] = [];
 
-    // Check cache first
+    // Check session-specific cache first
     for (let i = 0; i < texts.length; i++) {
-      const cached = this.embeddingCache.get(texts[i]);
+      const cached = sessionCache.get(texts[i]);
       if (cached) {
         embeddings[i] = cached;
       } else {
@@ -240,14 +264,14 @@ export class SemanticAnalyzer {
         const originalIndex = uncachedIndices[i];
         embeddings[originalIndex] = embedding;
 
-        // Cache with LRU eviction
-        if (this.embeddingCache.size >= this.maxCacheSize) {
-          const firstKey = this.embeddingCache.keys().next().value;
+        // Cache with LRU eviction per session
+        if (sessionCache.size >= this.maxCacheSize) {
+          const firstKey = sessionCache.keys().next().value;
           if (firstKey) {
-            this.embeddingCache.delete(firstKey);
+            sessionCache.delete(firstKey);
           }
         }
-        this.embeddingCache.set(uncachedTexts[i], embedding);
+        sessionCache.set(uncachedTexts[i], embedding);
       }
     }
 
@@ -293,8 +317,8 @@ export class SemanticAnalyzer {
    * PERFORMANCE OPTIMIZATION: Batch similarity matrix for multiple texts
    * Computes all pairwise similarities in one batch - much faster than individual calls
    */
-  async computeSimilarityMatrix(texts: string[]): Promise<number[][]> {
-    const embeddings = await this.getBatchEmbeddings(texts);
+  async computeSimilarityMatrix(texts: string[], sessionId?: string): Promise<number[][]> {
+    const embeddings = await this.getBatchEmbeddings(texts, sessionId);
     const matrix: number[][] = [];
 
     for (let i = 0; i < texts.length; i++) {
@@ -328,17 +352,11 @@ export class SemanticAnalyzer {
       throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
     }
 
-    try {
-      // Lazy load NLI classifier when needed for precision tasks
-      if (!this.nliClassifier) {
-        console.log('Loading NLI model for semantic feature extraction...');
-        this.nliClassifier = await pipeline<'zero-shot-classification'>(
-          'zero-shot-classification',
-          'MoritzLaurer/deberta-v3-base-zeroshot-v1.1-all-33',
-          { cache_dir: process.env.HF_HUB_CACHE || '.hf_cache' }
-        );
-      }
+    if (!this.nliClassifier) {
+      throw new Error('SemanticAnalyzer not initialized. Call initialize() first.');
+    }
 
+    try {
       // Use custom intents if provided, otherwise use generic ones
       const intents = customIntents || [
         'performing action',

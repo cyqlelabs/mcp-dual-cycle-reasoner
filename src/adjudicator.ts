@@ -9,6 +9,19 @@ const { SentimentAnalyzer, PorterStemmer, WordTokenizer } = natural;
 export class Adjudicator {
   private caseBase: Case[] = [];
   private caseIndex: Map<string, Case[]> = new Map(); // Index for faster retrieval
+  private isInitialized = false;
+
+  async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
+    // Ensure semantic analyzer is initialized before use
+    if (typeof (semanticAnalyzer as any).initialize === 'function') {
+      await (semanticAnalyzer as any).initialize();
+    }
+    this.isInitialized = true;
+  }
+
   private semanticIntents: string[] = [
     'performing action',
     'checking status',
@@ -35,6 +48,9 @@ export class Adjudicator {
    * Enhanced store experience with quality management and indexing
    */
   async storeExperience(case_: Case): Promise<void> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
     // Extract semantic features for better retrieval
     try {
       // Check if semantic analyzer is available
@@ -114,6 +130,9 @@ export class Adjudicator {
       min_similarity?: number;
     } = {}
   ): Promise<Case[]> {
+    if (!this.isInitialized) {
+      await this.initialize();
+    }
     try {
       // Check if semantic analyzer is available
       if (!semanticAnalyzer.isReady()) {

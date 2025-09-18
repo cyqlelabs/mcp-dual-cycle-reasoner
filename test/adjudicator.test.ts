@@ -38,6 +38,7 @@ describe('Adjudicator', () => {
 
   beforeEach(async () => {
     adjudicator = new Adjudicator();
+    await adjudicator.initialize();
   });
 
   afterEach(() => {
@@ -643,6 +644,7 @@ describe('Adjudicator', () => {
     it('should handle semantic analyzer not ready', async () => {
       const { semanticAnalyzer } = await import('../src/semantic-analyzer');
       const originalIsReady = semanticAnalyzer.isReady;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       try {
         // Mock isReady to return false
@@ -663,6 +665,7 @@ describe('Adjudicator', () => {
       } finally {
         // Ensure original method is always restored
         (semanticAnalyzer.isReady as any) = originalIsReady;
+        consoleErrorSpy.mockRestore();
       }
     }, 10000); // Add 10 second timeout
 
@@ -774,6 +777,7 @@ describe('Adjudicator', () => {
     it('should handle semantic analyzer errors during retrieval', async () => {
       const { semanticAnalyzer } = await import('../src/semantic-analyzer');
       const originalIsReady = semanticAnalyzer.isReady;
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
       try {
         // Store a case first using fallback storage (no semantic features)
@@ -792,6 +796,7 @@ describe('Adjudicator', () => {
       } finally {
         // Restore original method
         (semanticAnalyzer.isReady as any) = originalIsReady;
+        consoleErrorSpy.mockRestore();
       }
     }, 10000); // Add 10 second timeout
 
