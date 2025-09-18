@@ -13,6 +13,7 @@
     "dev": "tsc --watch",
     "test": "jest",
     "test:live": "jest test/live-server.test.ts --testPathIgnorePatterns=[] --verbose --silent=false",
+    "test:coverage": "jest --coverage --coverageReporters=text --coverageReporters=lcov",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write src/**/*.ts",
     "download-models": "node scripts/download-models.js",
