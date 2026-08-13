@@ -149,7 +149,6 @@ export class Sentinel {
     );
 
     // Extract action parameters for deeper analysis
-    const actionParams = recentActions.map((action) => this.extractActionParameters(action));
     const parameterRepetition = this.detectParameterPatterns(recentActions, semanticClusters);
 
     // Check for exact repetition patterns (fallback for simple cases)
@@ -912,18 +911,6 @@ export class Sentinel {
   }
 
   /**
-   * Calculate semantic similarity between two action strings using semantic analyzer
-   */
-  private async semanticSimilarity(
-    action1: string,
-    action2: string,
-    sessionId?: string
-  ): Promise<number> {
-    const result = await semanticAnalyzer.calculateSemanticSimilarity(action1, action2, sessionId);
-    return result.similarity;
-  }
-
-  /**
    * Extract action name and parameters from action string
    */
   private extractActionParameters(action: string): { name: string; params: string[] } {
@@ -976,19 +963,6 @@ export class Sentinel {
     const union = [...new Set([...params1, ...params2])];
 
     return intersection.length / union.length; // Jaccard similarity
-  }
-
-  /**
-   * Calculate token-level similarity between strings
-   */
-  private tokenSimilarity(str1: string, str2: string): number {
-    const tokens1 = str1.toLowerCase().split(/[_\s]+/);
-    const tokens2 = str2.toLowerCase().split(/[_\s]+/);
-
-    const intersection = tokens1.filter((t) => tokens2.includes(t));
-    const union = [...new Set([...tokens1, ...tokens2])];
-
-    return intersection.length / union.length;
   }
 
   /**

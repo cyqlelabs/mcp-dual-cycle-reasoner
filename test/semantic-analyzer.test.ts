@@ -104,10 +104,14 @@ describe('SemanticAnalyzer', () => {
         'Button was clicked'
       );
 
-      expect(mockNLIModel).toHaveBeenCalledWith('The user clicked a button', ['Button was clicked'], {
-        hypothesis_template: '{}',
-        multi_label: true,
-      });
+      expect(mockNLIModel).toHaveBeenCalledWith(
+        'The user clicked a button',
+        ['Button was clicked'],
+        {
+          hypothesis_template: '{}',
+          multi_label: true,
+        }
+      );
       expect(result).toEqual({
         label: 'ENTAILMENT',
         score: 0.8,
@@ -334,6 +338,59 @@ describe('SemanticAnalyzer', () => {
 
       // Verify embeddings were still generated
       expect(mockEmbeddingModel).toHaveBeenCalledTimes(502);
+    });
+
+    it('should refresh recency on cache hits so hot entries survive eviction', async () => {
+      // Fill the cache to its limit
+      const texts = [];
+      for (let i = 0; i < 500; i++) {
+        texts.push(`hot_${i}`);
+      }
+      await analyzer.getBatchEmbeddings(texts);
+
+      // Touch the oldest entry so it becomes most recently used
+      await analyzer.getBatchEmbeddings(['hot_0']);
+
+      // Adding one more entry evicts the least recently used (hot_1, not hot_0)
+      await analyzer.getBatchEmbeddings(['newcomer']);
+
+      mockEmbeddingModel.mockClear();
+      await analyzer.getBatchEmbeddings(['hot_0']);
+      expect(mockEmbeddingModel).not.toHaveBeenCalled();
+
+      await analyzer.getBatchEmbeddings(['hot_1']);
+      expect(mockEmbeddingModel).toHaveBeenCalledTimes(1);
+    });
+
+    it('should keep session caches isolated and clearable', async () => {
+      await analyzer.getBatchEmbeddings(['shared_text'], 'session_a');
+
+      // Same text in another session is not cached there
+      mockEmbeddingModel.mockClear();
+      await analyzer.getBatchEmbeddings(['shared_text'], 'session_b');
+      expect(mockEmbeddingModel).toHaveBeenCalledTimes(1);
+
+      // Clearing a session forces re-embedding for that session only
+      analyzer.clearSessionCache('session_a');
+      mockEmbeddingModel.mockClear();
+      await analyzer.getBatchEmbeddings(['shared_text'], 'session_a');
+      expect(mockEmbeddingModel).toHaveBeenCalledTimes(1);
+
+      mockEmbeddingModel.mockClear();
+      await analyzer.getBatchEmbeddings(['shared_text'], 'session_b');
+      expect(mockEmbeddingModel).not.toHaveBeenCalled();
+    });
+
+    it('should evict the oldest session when the session limit is reached', async () => {
+      // maxSessions is 100; create 101 sessions to force eviction of the first
+      for (let i = 0; i < 101; i++) {
+        await analyzer.getBatchEmbeddings([`text_for_session`], `session_${i}`);
+      }
+
+      const sessionCaches = (analyzer as any).sessionCaches;
+      expect(sessionCaches.size).toBeLessThanOrEqual(100);
+      expect(sessionCaches.has('session_0')).toBe(false);
+      expect(sessionCaches.has('session_100')).toBe(true);
     });
   });
 
@@ -598,6 +655,57 @@ describe('SemanticAnalyzer', () => {
       await expect(uninitializedAnalyzer.extractSemanticFeatures('test')).rejects.toThrow(
         'SemanticAnalyzer not initialized'
       );
+    });
+
+    it('should classify negative sentiment from the top sentiment label', async () => {
+      // Intent probe for the single custom intent, then the sentiment call
+      mockNLIModel
+        .mockResolvedValueOnce({ labels: ['failing'], scores: [0.9] })
+        .mockResolvedValueOnce({
+          labels: ['negative outcome', 'neutral outcome', 'positive outcome'],
+          scores: [0.85, 0.1, 0.05],
+        });
+
+      const result = await analyzer.extractSemanticFeatures('Failed to load page', ['failing']);
+
+      expect(result.sentiment).toBe('negative');
+      expect(result.intents).toEqual(['failing']);
+    });
+
+    it('should throw when the classifier is missing despite initialization', async () => {
+      (analyzer as any).nliClassifier = null;
+
+      await expect(analyzer.extractSemanticFeatures('test')).rejects.toThrow(
+        'SemanticAnalyzer not initialized'
+      );
+    });
+
+    it('should fall back to the generic intent taxonomy when none is provided', async () => {
+      // Every intent probe and the sentiment analysis get the same response
+      mockNLIModel.mockResolvedValue({
+        labels: ['positive outcome'],
+        scores: [0.8],
+      });
+
+      const result = await analyzer.extractSemanticFeatures('Completed the checkout flow');
+
+      // 10 generic intents probed plus one sentiment classification
+      expect(mockNLIModel).toHaveBeenCalledTimes(11);
+      expect(result.intents).toHaveLength(1);
+      expect(result.sentiment).toBe('positive');
+      expect(result.confidence).toBeGreaterThan(0);
+    });
+
+    it('should return neutral defaults when the classifier rejects', async () => {
+      mockNLIModel.mockRejectedValue(new Error('classifier offline'));
+
+      const result = await analyzer.extractSemanticFeatures('any text', ['single intent']);
+
+      expect(result).toEqual({
+        intents: [],
+        sentiment: 'neutral',
+        confidence: 0,
+      });
     });
   });
 
