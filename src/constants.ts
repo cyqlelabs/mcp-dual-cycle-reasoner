@@ -48,7 +48,7 @@ export const DESCRIPTIONS = {
 
   // Threshold descriptions
   ENTROPY_THRESHOLD: 'Threshold for entropy-based anomaly detection',
-  VARIANCE_THRESHOLD: 'Threshold for variance-based stagnation detectio cfn',
+  VARIANCE_THRESHOLD: 'Threshold for variance-based stagnation detection',
   TREND_THRESHOLD: 'Threshold for trend-based progress detection',
   CYCLICITY_THRESHOLD: 'Threshold for detecting cyclical patterns',
 

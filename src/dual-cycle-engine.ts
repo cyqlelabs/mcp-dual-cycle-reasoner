@@ -17,6 +17,7 @@ export class DualCycleEngine {
   private isMonitoring: boolean = false;
   private interventionCount: number = 0;
   private accumulatedActions: string[] = [];
+  private actionTimestamps: number[] = [];
   private sessionId?: string;
 
   constructor(config?: Partial<SentinelConfig>, sessionId?: string) {
@@ -63,6 +64,7 @@ export class DualCycleEngine {
     this.currentTrace.goal = initialGoal;
     this.interventionCount = 0;
     this.accumulatedActions = [];
+    this.actionTimestamps = [];
 
     console.log(chalk.blue('🧠 Dual-Cycle Engine: Metacognitive monitoring started'));
     console.log(chalk.gray(`Goal: ${initialGoal}`));
@@ -97,6 +99,7 @@ export class DualCycleEngine {
 
     // Add the new action to the accumulated actions
     this.accumulatedActions.push(lastAction);
+    this.actionTimestamps.push(Date.now());
     this.currentTrace.last_action = lastAction;
 
     console.log(
@@ -207,12 +210,20 @@ export class DualCycleEngine {
     intervention_count: number;
     current_goal: string;
     trace_length: number;
+    recent_actions: Array<{ type: string; timestamp: number }>;
   } {
+    const recentWindow = 10;
+    const startIndex = Math.max(0, this.accumulatedActions.length - recentWindow);
+
     return {
       is_monitoring: this.isMonitoring,
       intervention_count: this.interventionCount,
       current_goal: this.currentTrace.goal,
       trace_length: this.accumulatedActions.length,
+      recent_actions: this.accumulatedActions.slice(startIndex).map((type, offset) => ({
+        type,
+        timestamp: this.actionTimestamps[startIndex + offset],
+      })),
     };
   }
 
@@ -225,6 +236,7 @@ export class DualCycleEngine {
     this.isMonitoring = false;
     this.interventionCount = 0;
     this.accumulatedActions = [];
+    this.actionTimestamps = [];
     console.log(chalk.blue('🔄 Dual-Cycle Engine reset'));
   }
 

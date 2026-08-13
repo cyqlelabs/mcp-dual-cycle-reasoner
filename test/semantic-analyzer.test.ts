@@ -91,9 +91,11 @@ describe('SemanticAnalyzer', () => {
     });
 
     it('should analyze text pairs and return NLI results', async () => {
+      // The pipeline is queried with the hypothesis itself as the single candidate label,
+      // so scores[0] is the entailment probability for that hypothesis
       const mockResult = {
-        labels: ['ENTAILMENT', 'NEUTRAL', 'CONTRADICTION'],
-        scores: [0.8, 0.15, 0.05],
+        labels: ['Button was clicked'],
+        scores: [0.8],
       };
       mockNLIModel.mockResolvedValueOnce(mockResult);
 
@@ -102,6 +104,10 @@ describe('SemanticAnalyzer', () => {
         'Button was clicked'
       );
 
+      expect(mockNLIModel).toHaveBeenCalledWith('The user clicked a button', ['Button was clicked'], {
+        hypothesis_template: '{}',
+        multi_label: true,
+      });
       expect(result).toEqual({
         label: 'ENTAILMENT',
         score: 0.8,
@@ -109,11 +115,43 @@ describe('SemanticAnalyzer', () => {
       });
     });
 
+    it('should classify low entailment probability as contradiction', async () => {
+      const mockResult = {
+        labels: ['Task succeeded'],
+        scores: [0.1],
+      };
+      mockNLIModel.mockResolvedValueOnce(mockResult);
+
+      const result = await analyzer.analyzeTextPair('User failed', 'Task succeeded');
+
+      expect(result).toEqual({
+        label: 'CONTRADICTION',
+        score: 0.1,
+        confidence: 0.9,
+      });
+    });
+
+    it('should classify mid-range entailment probability as neutral', async () => {
+      const mockResult = {
+        labels: ['Task succeeded'],
+        scores: [0.5],
+      };
+      mockNLIModel.mockResolvedValueOnce(mockResult);
+
+      const result = await analyzer.analyzeTextPair('User did something', 'Task succeeded');
+
+      expect(result).toEqual({
+        label: 'NEUTRAL',
+        score: 0.5,
+        confidence: 1,
+      });
+    });
+
     it('should handle array results from NLI model', async () => {
       const mockResult = [
         {
-          labels: ['CONTRADICTION', 'NEUTRAL', 'ENTAILMENT'],
-          scores: [0.7, 0.2, 0.1],
+          labels: ['Task succeeded'],
+          scores: [0.2],
         },
       ];
       mockNLIModel.mockResolvedValueOnce(mockResult);
@@ -122,8 +160,8 @@ describe('SemanticAnalyzer', () => {
 
       expect(result).toEqual({
         label: 'CONTRADICTION',
-        score: 0.7,
-        confidence: 0.7,
+        score: 0.2,
+        confidence: 0.8,
       });
     });
 
@@ -160,8 +198,8 @@ describe('SemanticAnalyzer', () => {
 
     it('should assess successful action outcomes', async () => {
       const mockResult = {
-        labels: ['ENTAILMENT', 'NEUTRAL', 'CONTRADICTION'],
-        scores: [0.8, 0.15, 0.05],
+        labels: ['Button was clicked'],
+        scores: [0.8],
       };
       mockNLIModel.mockResolvedValueOnce(mockResult);
 
@@ -176,8 +214,8 @@ describe('SemanticAnalyzer', () => {
 
     it('should assess failed action outcomes', async () => {
       const mockResult = {
-        labels: ['CONTRADICTION', 'NEUTRAL', 'ENTAILMENT'],
-        scores: [0.85, 0.1, 0.05],
+        labels: ['Button was not found'],
+        scores: [0.15],
       };
       mockNLIModel.mockResolvedValueOnce(mockResult);
 
@@ -192,8 +230,8 @@ describe('SemanticAnalyzer', () => {
 
     it('should handle neutral outcomes', async () => {
       const mockResult = {
-        labels: ['NEUTRAL', 'ENTAILMENT', 'CONTRADICTION'],
-        scores: [0.6, 0.25, 0.15],
+        labels: ['Something happened'],
+        scores: [0.6],
       };
       mockNLIModel.mockResolvedValueOnce(mockResult);
 
@@ -201,7 +239,7 @@ describe('SemanticAnalyzer', () => {
 
       expect(result).toEqual({
         category: 'neutral',
-        confidence: 0.6,
+        confidence: 0.9,
         reasoning: expect.stringContaining('Uncertain relationship'),
       });
     });
@@ -581,19 +619,19 @@ describe('SemanticAnalyzer', () => {
       // Clear previous mock calls but keep the mock function
       mockNLIModel.mockClear();
 
-      // Mock different responses for different intents
+      // Mock different entailment probabilities for different intents
       mockNLIModel
         .mockResolvedValueOnce({
-          labels: ['ENTAILMENT', 'NEUTRAL', 'CONTRADICTION'],
-          scores: [0.9, 0.08, 0.02],
+          labels: ['clicking'],
+          scores: [0.9],
         })
         .mockResolvedValueOnce({
-          labels: ['NEUTRAL', 'ENTAILMENT', 'CONTRADICTION'],
-          scores: [0.6, 0.3, 0.1],
+          labels: ['scrolling'],
+          scores: [0.5],
         })
         .mockResolvedValueOnce({
-          labels: ['CONTRADICTION', 'NEUTRAL', 'ENTAILMENT'],
-          scores: [0.8, 0.15, 0.05],
+          labels: ['typing'],
+          scores: [0.1],
         });
 
       const intents = ['clicking', 'scrolling', 'typing'];
@@ -610,13 +648,13 @@ describe('SemanticAnalyzer', () => {
       mockNLIModel.mockClear();
 
       mockNLIModel.mockResolvedValue({
-        labels: ['NEUTRAL', 'ENTAILMENT', 'CONTRADICTION'],
-        scores: [0.7, 0.2, 0.1],
+        labels: ['intent1'],
+        scores: [0.5],
       });
 
       const result = await analyzer.classifyActionIntent('ambiguous action', ['intent1']);
 
-      expect(result.confidence).toBeCloseTo(0.35); // 0.7 * 0.5 for neutral
+      expect(result.confidence).toBeCloseTo(0.5); // 1.0 * 0.5 for neutral
     });
 
     it('should handle contradiction classifications', async () => {
@@ -624,13 +662,13 @@ describe('SemanticAnalyzer', () => {
       mockNLIModel.mockClear();
 
       mockNLIModel.mockResolvedValue({
-        labels: ['CONTRADICTION', 'NEUTRAL', 'ENTAILMENT'],
-        scores: [0.8, 0.15, 0.05],
+        labels: ['intent1'],
+        scores: [0.1],
       });
 
       const result = await analyzer.classifyActionIntent('opposite action', ['intent1']);
 
-      expect(result.confidence).toBeCloseTo(0.08); // 0.8 * 0.1 for contradiction
+      expect(result.confidence).toBeCloseTo(0.09); // 0.9 * 0.1 for contradiction
     });
   });
 });

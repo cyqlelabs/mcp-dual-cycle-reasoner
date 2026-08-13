@@ -107,7 +107,7 @@ export class Adjudicator {
 
       // Manage case base size with intelligent pruning
       if (this.caseBase.length > 1000) {
-        this.pruneeCaseBase();
+        this.pruneCaseBase();
       }
     } catch (error) {
       console.error('Error storing experience:', error);
@@ -186,7 +186,7 @@ export class Adjudicator {
       );
 
       // Filter by minimum similarity threshold (more restrictive due to inflated semantic scores)
-      const minSimilarity = filters.min_similarity || 0.6;
+      const minSimilarity = filters.min_similarity ?? 0.6;
       const validCases = scoredCases.filter((item) => item.similarity >= minSimilarity);
 
       // Sort by similarity and success rate
@@ -551,7 +551,7 @@ export class Adjudicator {
   /**
    * Intelligent case base pruning
    */
-  private pruneeCaseBase(): void {
+  private pruneCaseBase(): void {
     // Sort by quality score combining multiple factors
     const scoredCases = this.caseBase.map((case_) => ({
       case: case_,

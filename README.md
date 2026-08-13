@@ -249,7 +249,7 @@ Retrieve similar cases using advanced semantic matching and filtering.
   context_filter?: string;
   difficulty_filter?: "low" | "medium" | "high";
   outcome_filter?: boolean;
-  min_similarity?: number; // default: 0.1
+  min_similarity?: number; // default: 0.6
 }
 ```
 
@@ -303,8 +303,6 @@ Returns a JSON string with the current monitoring status, including `is_monitori
 Reset the dual-cycle engine state.
 
 **Input Schema**: `{}`
-
-## Example Usage Scenario
 
 ## Example Usage Scenario
 
