@@ -90,9 +90,10 @@
       ]
     },
     "transformIgnorePatterns": [
-      "node_modules/(?!(chalk|ansi-styles|@modelcontextprotocol|mcp-client|reconnecting-eventsource|strict-event-emitter-types)/)"
+      "node_modules/(?!(chalk|ansi-styles|@modelcontextprotocol|mcp-client|reconnecting-eventsource|strict-event-emitter-types|fastmcp|fuse.js|uri-templates|xsschema|file-type|strtok3|token-types|peek-readable|uint8array-extras|mcp-proxy|eventsource|eventsource-parser|pkce-challenge)/)"
     ],
     "moduleNameMapper": {
+      "^fuse\\.js$": "<rootDir>/node_modules/fuse.js/dist/fuse.cjs",
       "^(.+)\\.js$": "$1"
     }
   }

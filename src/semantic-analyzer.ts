@@ -69,19 +69,34 @@ export class SemanticAnalyzer {
     }
 
     try {
-      const labels = ['CONTRADICTION', 'ENTAILMENT', 'NEUTRAL'];
-      const result = await this.nliClassifier(premise, labels, {
-        hypothesis_template: `${hypothesis}`,
+      // Score the hypothesis directly against the premise. Using the hypothesis as the
+      // candidate label with a bare '{}' template makes the zero-shot pipeline run true
+      // premise/hypothesis NLI; multi_label yields P(entailment) for that single hypothesis.
+      const result = await this.nliClassifier(premise, [hypothesis], {
+        hypothesis_template: '{}',
+        multi_label: true,
       });
 
       const output = Array.isArray(result) ? result[0] : result;
-      const topLabel = output.labels[0];
-      const topScore = output.scores[0];
+      const entailmentProbability = output.scores[0];
+
+      let label: 'CONTRADICTION' | 'ENTAILMENT' | 'NEUTRAL';
+      let confidence: number;
+      if (entailmentProbability >= 0.7) {
+        label = 'ENTAILMENT';
+        confidence = entailmentProbability;
+      } else if (entailmentProbability <= 0.3) {
+        label = 'CONTRADICTION';
+        confidence = 1 - entailmentProbability;
+      } else {
+        label = 'NEUTRAL';
+        confidence = 1 - Math.abs(entailmentProbability - 0.5);
+      }
 
       return {
-        label: topLabel as 'CONTRADICTION' | 'ENTAILMENT' | 'NEUTRAL',
-        score: topScore,
-        confidence: topScore,
+        label,
+        score: entailmentProbability,
+        confidence,
       };
     } catch (error) {
       console.error('Error analyzing text pair:', error);
@@ -224,6 +239,9 @@ export class SemanticAnalyzer {
       const cached = sessionCache.get(texts[i]);
       if (cached) {
         embeddings[i] = cached;
+        // Refresh recency so frequently used embeddings survive LRU eviction
+        sessionCache.delete(texts[i]);
+        sessionCache.set(texts[i], cached);
       } else {
         uncachedTexts.push(texts[i]);
         uncachedIndices.push(i);

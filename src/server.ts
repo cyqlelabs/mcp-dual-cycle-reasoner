@@ -1,7 +1,10 @@
 #!/usr/bin/env node
 
 import { FastMCP, UserError } from 'fastmcp';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { z } from 'zod';
+import { getModuleDir, isEntryPoint } from './runtime-paths.js';
 import { DualCycleEngine } from './dual-cycle-engine.js';
 import {
   MonitorCognitiveTraceInputSchema,
@@ -19,7 +22,7 @@ import chalk from 'chalk';
  * MCP Server implementing the Dual-Cycle Metacognitive Reasoning Framework
  * Built with FastMCP for SSE transport support
  *
- * This server provides tools for autonomous agent cfs to monitor their own cognition,
+ * This server provides tools for autonomous agents to monitor their own cognition,
  * detect when they're stuck in loops, and learn from experience.
  *
  * Based on the framework described in DUAL-CYCLE.MD, this implements:
@@ -28,6 +31,16 @@ import chalk from 'chalk';
  * - Case-based reasoning for learning from experience
  * - Statistical analysis for pattern recognition
  */
+
+// Keep the advertised server version in sync with package.json
+const packageVersion = (() => {
+  try {
+    const packageJsonPath = join(getModuleDir(), '..', 'package.json');
+    return JSON.parse(readFileSync(packageJsonPath, 'utf-8')).version as string;
+  } catch {
+    return '0.0.0';
+  }
+})();
 
 class DualCycleReasonerServer {
   private server: FastMCP;
@@ -39,7 +52,7 @@ class DualCycleReasonerServer {
   constructor() {
     this.server = new FastMCP({
       name: 'dual-cycle-reasoner',
-      version: '1.2.1',
+      version: packageVersion as `${number}.${number}.${number}`,
       instructions: `This MCP server implements the Dual-Cycle Metacognitive Reasoning Framework for autonomous agents.
 
 Key capabilities:
@@ -148,7 +161,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
    * Periodically clean up stale sessions (since we're using Map instead of WeakMap)
    */
   private setupSessionCleanup(): void {
-    setInterval(() => {
+    const cleanupInterval = setInterval(() => {
       // This is a simple cleanup strategy - in a production system,
       // you might want to track last access times and clean up inactive sessions
       if (this.engines.size > 100) {
@@ -160,6 +173,9 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         );
       }
     }, 300000); // Check every 5 minutes
+
+    // Never keep the process alive just for the cleanup timer
+    cleanupInterval.unref?.();
   }
 
   private setupEventHandlers(): void {
@@ -443,7 +459,12 @@ Use this server to help autonomous agents become more self-aware and resilient.`
 
           // Direct access to sentinel for standalone loop detection
           const sentinel = (sessionEngine as any).sentinel;
-          const result = await sentinel.detectLoop(trace, validatedArgs.detection_method);
+          const result = await sentinel.detectLoop(
+            trace,
+            validatedArgs.detection_method,
+            10,
+            sessionId
+          );
 
           await reportProgress({ progress: 2, total: 2 });
 
@@ -475,6 +496,11 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         problem_description: z.string().describe(DESCRIPTIONS.PROBLEM_DESCRIPTION),
         solution: z.string().describe(DESCRIPTIONS.SOLUTION),
         outcome: z.boolean().describe(DESCRIPTIONS.OUTCOME),
+        context: z.string().optional().describe('The context in which this case occurred'),
+        difficulty_level: z
+          .enum(['low', 'medium', 'high'])
+          .optional()
+          .describe('The difficulty level of this case'),
       }),
       annotations: {
         title: 'Store Experience Case',
@@ -530,6 +556,21 @@ Use this server to help autonomous agents become more self-aware and resilient.`
       parameters: z.object({
         problem_description: z.string().describe(DESCRIPTIONS.PROBLEM_DESCRIPTION),
         max_results: z.number().optional().default(5).describe(DESCRIPTIONS.MAX_RESULTS),
+        context_filter: z.string().optional().describe('Filter cases by context'),
+        difficulty_filter: z
+          .enum(['low', 'medium', 'high'])
+          .optional()
+          .describe('Filter cases by difficulty level'),
+        outcome_filter: z
+          .boolean()
+          .optional()
+          .describe('Filter cases by outcome (success/failure)'),
+        min_similarity: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .describe('Minimum similarity threshold (default: 0.6)'),
       }),
       annotations: {
         title: 'Retrieve Similar Cases',
@@ -581,7 +622,7 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : String(error);
           log.error('Failed to retrieve similar cases', { error: errorMessage });
-          throw new UserError(`Failed to retrieve similar cases: {errorMessage}`);
+          throw new UserError(`Failed to retrieve similar cases: ${errorMessage}`);
         }
       },
     });
@@ -667,33 +708,18 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         progress_indicators: z
           .array(z.string())
           .optional()
-          .default([])
           .describe(DESCRIPTIONS.PROGRESS_INDICATORS),
         min_actions_for_detection: z
           .number()
           .optional()
-          .default(5)
           .describe(DESCRIPTIONS.MIN_ACTIONS_FOR_DETECTION),
-        alternating_threshold: z
-          .number()
-          .optional()
-          .default(0.5)
-          .describe(DESCRIPTIONS.ALTERNATING_THRESHOLD),
-        repetition_threshold: z
-          .number()
-          .optional()
-          .default(0.4)
-          .describe(DESCRIPTIONS.REPETITION_THRESHOLD),
+        alternating_threshold: z.number().optional().describe(DESCRIPTIONS.ALTERNATING_THRESHOLD),
+        repetition_threshold: z.number().optional().describe(DESCRIPTIONS.REPETITION_THRESHOLD),
         progress_threshold_adjustment: z
           .number()
           .optional()
-          .default(0.2)
           .describe(DESCRIPTIONS.PROGRESS_THRESHOLD_ADJUSTMENT),
-        semantic_intents: z
-          .array(z.string())
-          .optional()
-          .default([])
-          .describe(DESCRIPTIONS.SEMANTIC_INTENTS),
+        semantic_intents: z.array(z.string()).optional().describe(DESCRIPTIONS.SEMANTIC_INTENTS),
       }),
       annotations: {
         title: 'Configure Detection Parameters',
@@ -706,7 +732,11 @@ Use this server to help autonomous agents become more self-aware and resilient.`
         try {
           const sessionEngine = this.getSessionEngine(session);
           const sessionId = this.sessionIds.get(session);
-          const newConfig = args as Partial<SentinelConfig>;
+          // Only merge the parameters that were actually provided so a partial
+          // update never resets previously configured values back to defaults
+          const newConfig = Object.fromEntries(
+            Object.entries(args).filter(([, value]) => value !== undefined)
+          ) as Partial<SentinelConfig>;
 
           log.info('Updating detection configuration', {
             progressIndicators: newConfig.progress_indicators,
@@ -806,15 +836,21 @@ Use this server to help autonomous agents become more self-aware and resilient.`
   }
 }
 
-// Parse command line arguments
-const args = process.argv.slice(2);
-const transportType = args.includes('--stdio') ? 'stdio' : 'httpStream';
-const portArg = args.find((arg) => arg.startsWith('--port='));
-const port = portArg ? parseInt(portArg.split('=')[1]) : 8080;
+export { DualCycleReasonerServer };
 
-// Start the server
-const server = new DualCycleReasonerServer();
-server.start({ transportType, port }).catch((error) => {
-  console.error(chalk.red('Failed to start server:'), error);
-  process.exit(1);
-});
+// Only auto-start when executed directly (e.g. `node build/server.js` or the
+// published bin shim), so the class stays importable for testing and embedding
+if (isEntryPoint('server.js') || isEntryPoint('server.ts')) {
+  // Parse command line arguments
+  const args = process.argv.slice(2);
+  const transportType = args.includes('--stdio') ? 'stdio' : 'httpStream';
+  const portArg = args.find((arg) => arg.startsWith('--port='));
+  const port = portArg ? parseInt(portArg.split('=')[1]) : 8080;
+
+  // Start the server
+  const server = new DualCycleReasonerServer();
+  server.start({ transportType, port }).catch((error) => {
+    console.error(chalk.red('Failed to start server:'), error);
+    process.exit(1);
+  });
+}

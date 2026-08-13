@@ -10,12 +10,13 @@ export class Sentinel {
 
   constructor(config: Partial<SentinelConfig> = {}) {
     this.config = {
-      progress_indicators: config.progress_indicators || [],
-      min_actions_for_detection: config.min_actions_for_detection || 5,
-      alternating_threshold: config.alternating_threshold || 0.5,
-      repetition_threshold: config.repetition_threshold || 0.4,
-      progress_threshold_adjustment: config.progress_threshold_adjustment || 0.2,
-      semantic_intents: config.semantic_intents || [
+      progress_indicators: config.progress_indicators ?? [],
+      min_actions_for_detection: config.min_actions_for_detection ?? 5,
+      alternating_threshold: config.alternating_threshold ?? 0.5,
+      repetition_threshold: config.repetition_threshold ?? 0.4,
+      progress_threshold_adjustment: config.progress_threshold_adjustment ?? 0.2,
+      statistical_analysis: config.statistical_analysis,
+      semantic_intents: config.semantic_intents ?? [
         'performing action',
         'checking status',
         'retrieving information',
@@ -31,11 +32,29 @@ export class Sentinel {
   }
 
   /**
+   * Resolve statistical analysis thresholds, falling back to the documented defaults
+   */
+  private getStatisticalThresholds(): {
+    entropy_threshold: number;
+    variance_threshold: number;
+    trend_threshold: number;
+    cyclicity_threshold: number;
+  } {
+    return {
+      entropy_threshold: this.config.statistical_analysis?.entropy_threshold ?? 0.6,
+      variance_threshold: this.config.statistical_analysis?.variance_threshold ?? 0.1,
+      trend_threshold: this.config.statistical_analysis?.trend_threshold ?? 0.1,
+      cyclicity_threshold: this.config.statistical_analysis?.cyclicity_threshold ?? 0.3,
+    };
+  }
+
+  /**
    * Enhanced statistical anomaly detection using entropy and advanced metrics
    */
   private detectStatisticalAnomalies(actions: string[]): number {
     if (actions.length < 3) return 0;
 
+    const thresholds = this.getStatisticalThresholds();
     const actionFrequencies = this.calculateActionFrequencies(actions);
     const frequencies = Object.values(actionFrequencies);
 
@@ -44,14 +63,17 @@ export class Sentinel {
     const maxEntropy = Math.log2(Object.keys(actionFrequencies).length);
     const normalizedEntropy = maxEntropy > 0 ? entropy / maxEntropy : 0;
 
-    // Calculate standard deviation of action intervals
+    // Variance of the hashed action values: near-zero variance means the same
+    // actions are being repeated over and over
     const actionHashes = actions.map((a) => this.hashAction(a));
-    const intervalVariance =
-      actionHashes.length > 1 ? ss.variance(actionHashes.map((_, i) => i)) : 0;
+    const actionVariance = actionHashes.length > 1 ? ss.variance(actionHashes) : 0;
 
-    // Combine entropy and variance for anomaly score
-    const entropyScore = 1 - normalizedEntropy; // Lower entropy = higher anomaly
-    const varianceScore = intervalVariance < 0.1 ? 0.8 : 0.2; // Low variance = repetitive
+    // Combine entropy and variance for anomaly score. Entropy above the configured
+    // threshold indicates a healthy action mix, so its anomaly contribution is dampened.
+    const rawEntropyScore = 1 - normalizedEntropy; // Lower entropy = higher anomaly
+    const entropyScore =
+      normalizedEntropy < thresholds.entropy_threshold ? rawEntropyScore : rawEntropyScore * 0.5;
+    const varianceScore = actionVariance < thresholds.variance_threshold ? 0.8 : 0.2;
 
     return entropyScore * 0.7 + varianceScore * 0.3;
   }
@@ -62,6 +84,7 @@ export class Sentinel {
   private detectTemporalPatterns(actions: string[]): number {
     if (actions.length < 5) return 0;
 
+    const thresholds = this.getStatisticalThresholds();
     const actionSequence = actions.map((a) => this.hashAction(a));
 
     // Calculate autocorrelation to detect periodic patterns
@@ -73,7 +96,7 @@ export class Sentinel {
     const trendVariance = movingAvg.length > 1 ? ss.variance(movingAvg) : 0;
 
     // High periodicity + low trend variance = stuck pattern
-    return periodicityScore > 0.7 && trendVariance < 0.1 ? 0.8 : 0.2;
+    return periodicityScore > 0.7 && trendVariance < thresholds.variance_threshold ? 0.8 : 0.2;
   }
 
   /**
@@ -181,13 +204,32 @@ export class Sentinel {
       return sum + score * weights[method as keyof typeof weights];
     }, 0);
 
-    // Adjust threshold based on whether we have progress indicators
+    // Adjust thresholds based on whether we have progress indicators
     const baseThreshold = 0.25; // Even more sensitive for better detection
-    const anomalyThreshold = hasProgressAction
-      ? baseThreshold + this.config.progress_threshold_adjustment
-      : baseThreshold;
+    const progressAdjustment = hasProgressAction ? this.config.progress_threshold_adjustment : 0;
+    const anomalyThreshold = baseThreshold + progressAdjustment;
 
-    if (combinedAnomalyScore > anomalyThreshold) {
+    // Configurable per-pattern triggers: a repetition or alternating score that
+    // crosses its configured threshold flags a loop even when the weighted
+    // combined score stays below the overall anomaly threshold
+    const repetitionThreshold = Math.min(1, this.config.repetition_threshold + progressAdjustment);
+    const alternatingThreshold = Math.min(
+      1,
+      this.config.alternating_threshold + progressAdjustment
+    );
+    const repetitionScore = Math.max(
+      anomalyScores.semantic_repetition,
+      anomalyScores.exact_repetition,
+      anomalyScores.parameter_repetition
+    );
+    const alternationScore = Math.max(
+      anomalyScores.alternating_pattern,
+      anomalyScores.oscillation_pattern
+    );
+    const thresholdTriggered =
+      repetitionScore >= repetitionThreshold || alternationScore >= alternatingThreshold;
+
+    if (combinedAnomalyScore > anomalyThreshold || thresholdTriggered) {
       // Find the most significant detection method
       const dominantMethod = Object.entries(anomalyScores).reduce(
         (max, [method, score]) => (score > max.score ? { method, score } : max),
@@ -285,7 +327,7 @@ export class Sentinel {
     // Add both hashes to state history
     this.stateHistory.push(currentStateHash);
     this.stateHistory.push(combinedStateHash);
-    if (this.stateHistory.length > this.maxHistorySize) {
+    while (this.stateHistory.length > this.maxHistorySize) {
       this.stateHistory.shift();
     }
 
@@ -412,12 +454,22 @@ export class Sentinel {
     const progressiveFactor = Math.min(0.1, (actionCount - 6) * 0.01); // Gradual increase
     const diversityThreshold = baseThreshold + progressiveFactor;
 
-    // Advanced pattern analysis with optional precomputed similarity matrix
-    const timeSeriesAnalysis = this.analyzeActionTimeSeries(trace);
-    const actionChangeVelocity = this.calculateActionChangeVelocity(trace.recent_actions);
+    // Advanced pattern analysis scoped to the monitoring window so per-update cost
+    // stays bounded regardless of how long the accumulated trace grows. A provided
+    // similarity matrix is only reused when it matches the analyzed window.
+    const windowMatrix =
+      similarityMatrix && similarityMatrix.length === longWindow.length
+        ? similarityMatrix
+        : undefined;
+    const timeSeriesAnalysis = this.analyzeActionTimeSeries({
+      ...trace,
+      recent_actions: longWindow,
+    });
+    const actionChangeVelocity = this.calculateActionChangeVelocity(longWindow);
     const semanticVariation = await this.calculateSemanticVariation(
-      trace.recent_actions,
-      similarityMatrix
+      longWindow,
+      windowMatrix,
+      sessionId
     );
 
     // Multi-factor stagnation score
@@ -572,7 +624,10 @@ export class Sentinel {
    * Update configuration for progress indicators and thresholds
    */
   updateConfig(newConfig: Partial<SentinelConfig>): void {
-    this.config = { ...this.config, ...newConfig };
+    const definedEntries = Object.entries(newConfig ?? {}).filter(
+      ([, value]) => value !== undefined
+    );
+    this.config = { ...this.config, ...Object.fromEntries(definedEntries) };
   }
 
   /**
@@ -619,6 +674,8 @@ export class Sentinel {
       return { trendScore: 0, cyclicityScore: 0, stagnationScore: 0 };
     }
 
+    const thresholds = this.getStatisticalThresholds();
+
     // Convert actions to numerical sequence for analysis
     const actionSequence = actions.map((a: string) => this.hashAction(a));
 
@@ -633,12 +690,12 @@ export class Sentinel {
     const sumXX = xValues.reduce((sum: number, x: number) => sum + x * x, 0);
 
     const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-    const trendScore = Math.abs(slope) < 0.1 ? 0.8 : 0.2; // Low slope = stagnation
+    const trendScore = Math.abs(slope) < thresholds.trend_threshold ? 0.8 : 0.2; // Low slope = stagnation
 
     // Detect cyclicity using frequency analysis
     const fft = this.simpleFFT(actionSequence);
     const dominantFrequency = this.findDominantFrequency(fft);
-    const cyclicityScore = dominantFrequency > 0.3 ? 0.9 : 0.1;
+    const cyclicityScore = dominantFrequency > thresholds.cyclicity_threshold ? 0.9 : 0.1;
 
     // Calculate stagnation using variance
     const variance = ss.variance(actionSequence);
@@ -1247,12 +1304,14 @@ export class Sentinel {
    */
   private async calculateSemanticVariation(
     actions: string[],
-    similarityMatrix?: number[][]
+    similarityMatrix?: number[][],
+    sessionId?: string
   ): Promise<number> {
     if (actions.length < 4) return 0.5;
 
     // Use existing matrix or compute if not provided
-    const matrix = similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions));
+    const matrix =
+      similarityMatrix || (await semanticAnalyzer.computeSimilarityMatrix(actions, sessionId));
 
     // Calculate diversity based on average pairwise similarity
     let totalSimilarity = 0;
